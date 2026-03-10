@@ -2,6 +2,17 @@
 
 Telegram bot that tracks your mood over time using the [Russell circumplex model of affect](https://doi.org/10.1037/h0077714). It periodically asks how you feel, maps your emotions to valence/arousal coordinates, and generates charts of your trends.
 
+## Emotion theory
+
+The brain has two independent neurophysiological systems for affect, making emotional states inherently two-dimensional ([Colibazzi et al., 2010](https://doi.org/10.1037/a0018484); [Posner et al., 2009](https://doi.org/10.1037/h0077714)). Feelinq uses the **Russell circumplex model** ([Russell, 1980](https://doi.org/10.1037/h0077714)):
+
+- **Valence** (x-axis): pleasant (+1) to unpleasant (−1)
+- **Arousal** (y-axis): energised (+1) to calm (−1)
+
+Examples: *Excited* = high valence, high arousal; *Relaxed* = high valence, low arousal; *Angry* = low valence, high arousal; *Bored* = low valence, low arousal.
+
+When multiple emotions are selected, the bot stores their mean valence and arousal — a single point on the circumplex representing your overall state for that entry.
+
 ## Setup
 
 Requires Python 3.12+, PostgreSQL, and InfluxDB 2.x.
