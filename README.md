@@ -15,17 +15,31 @@ When multiple emotions are selected, the bot stores their mean valence and arous
 
 ## Setup
 
-Requires Python 3.12+, PostgreSQL, and InfluxDB 3 Core.
+Requires PostgreSQL and InfluxDB 3 Core. You can run everything locally or use containers.
+
+### Option 1: Run locally
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). PostgreSQL and InfluxDB must be running separately.
 
 ```sh
 cp .env.example .env   # fill in TELEGRAM_BOT_TOKEN, DB credentials
-pip install .
-feelinq                # or: python -m feelinq.main
+uv sync
+uv run feelinq
 ```
 
-### Container deployment (Podman Quadlet)
+### Option 2: Container deployment (Podman Quadlet)
+
+Runs the bot, PostgreSQL, and InfluxDB as rootless Podman containers managed by systemd.
 
 ```sh
+# Build the bot image
+podman build -t feelinq:latest .
+
+# Set up the env file
+mkdir -p ~/.config/feelinq
+cp .env.example ~/.config/feelinq/.env  # fill in TELEGRAM_BOT_TOKEN
+
+# Install and start the quadlet units
 cp quadlet/*.container ~/.config/containers/systemd/
 systemctl --user daemon-reload
 systemctl --user start feelinq.service
@@ -49,5 +63,4 @@ All via environment variables (see `.env.example`):
 - `POSTGRES_DSN` — asyncpg connection string
 - `INFLUX_HOST`, `INFLUX_PORT`, `INFLUX_TOKEN`, `INFLUX_DATABASE`
 - `ADMIN_USER_IDS` — comma-separated Telegram chat IDs
-- `WEBHOOK_URL` — optional; uses polling if absent
 - `LOG_LEVEL` — `DEBUG` or `INFO`
