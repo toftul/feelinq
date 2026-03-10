@@ -1,0 +1,16 @@
+[Unit]
+Description=Feelinq mood tracking bot
+After=postgres.service influxdb.service
+Requires=postgres.service influxdb.service
+
+[Container]
+Image=localhost/feelinq:latest
+EnvironmentFile=%h/.config/feelinq/.env
+Network=feelinq.network
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

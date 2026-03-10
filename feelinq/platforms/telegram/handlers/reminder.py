@@ -1,0 +1,185 @@
+import logging
+
+from telegram import Update
+from telegram.ext import (
+    CallbackQueryHandler,
+    ConversationHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
+
+from feelinq.core.emotions import mean_valence_arousal
+from feelinq.core.entry_handler import save_entry
+from feelinq.core.i18n import t
+from feelinq.db import postgres
+from feelinq.platforms.telegram import keyboards
+
+log = logging.getLogger(__name__)
+
+EMOTION_SELECT, CONFIRM = range(2)
+
+# Key in user_data for tracking active reminder sessions
+_SESSION_KEY = "reminder_active"
+_SELECTED_KEY = "reminder_selected"
+_MSG_ID_KEY = "reminder_msg_id"
+
+
+async def send_reminder(user_id: str) -> None:
+    """Called by the scheduler. Sends the emotion picker to the user."""
+    from feelinq.platforms.telegram.bot import get_application
+
+    app = get_application()
+    user = await postgres.get_user(user_id)
+    if not user:
+        return
+
+    platform_id = int(user["platform_id"])
+    lang = user["language"]
+
+    # Check if there's already an active reminder session
+    user_data = app.user_data.get(platform_id, {})
+    if user_data.get(_SESSION_KEY):
+        log.debug("Skipping reminder for user %s — session already active", user_id)
+        return
+
+    msg = await app.bot.send_message(
+        chat_id=platform_id,
+        text=t(lang, "reminder.prompt"),
+        reply_markup=keyboards.emotion_picker_keyboard(lang, set()),
+        parse_mode="HTML",
+    )
+
+    # Store session state
+    if platform_id not in app.user_data:
+        app.user_data[platform_id] = {}
+    app.user_data[platform_id][_SESSION_KEY] = True
+    app.user_data[platform_id][_SELECTED_KEY] = set()
+    app.user_data[platform_id][_MSG_ID_KEY] = msg.message_id
+
+
+async def emotion_toggled(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    assert query and query.data
+    await query.answer()
+
+    assert context.user_data is not None
+    assert update.effective_chat
+
+    platform_id = str(update.effective_chat.id)
+    user = await postgres.get_user_by_platform("telegram", platform_id)
+    if not user:
+        return ConversationHandler.END
+    lang = user["language"]
+
+    selected: set[str] = context.user_data.get(_SELECTED_KEY, set())
+    key = query.data.split(":")[1]
+
+    if key == "done":
+        if not selected:
+            await query.answer(t(lang, "reminder.done_button_disabled"), show_alert=True)
+            return EMOTION_SELECT
+
+        emotion_keys = sorted(selected)
+        mean_v, mean_a = mean_valence_arousal(emotion_keys)
+        emotion_labels = ", ".join(t(lang, f"emotions.{k}") for k in emotion_keys)
+        text = t(lang, "reminder.confirm", emotions=emotion_labels, valence=f"{mean_v:+.2f}", arousal=f"{mean_a:+.2f}")
+
+        await query.edit_message_text(
+            text,
+            reply_markup=keyboards.confirm_keyboard(lang),
+            parse_mode="HTML",
+        )
+        return CONFIRM
+
+    # Toggle emotion
+    if key in selected:
+        selected.discard(key)
+    else:
+        selected.add(key)
+    context.user_data[_SELECTED_KEY] = selected
+
+    await query.edit_message_reply_markup(
+        reply_markup=keyboards.emotion_picker_keyboard(lang, selected),
+    )
+    return EMOTION_SELECT
+
+
+async def entry_action(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    assert query and query.data
+    await query.answer()
+
+    assert context.user_data is not None
+    assert update.effective_chat
+
+    platform_id = str(update.effective_chat.id)
+    user = await postgres.get_user_by_platform("telegram", platform_id)
+    if not user:
+        return ConversationHandler.END
+    lang = user["language"]
+
+    action = query.data.split(":")[1]
+
+    if action == "reset":
+        context.user_data[_SELECTED_KEY] = set()
+        await query.edit_message_text(
+            t(lang, "reminder.prompt"),
+            reply_markup=keyboards.emotion_picker_keyboard(lang, set()),
+            parse_mode="HTML",
+        )
+        return EMOTION_SELECT
+
+    # action == "save"
+    selected: set[str] = context.user_data.get(_SELECTED_KEY, set())
+    emotion_keys = sorted(selected)
+
+    mean_v, mean_a = await save_entry(
+        user_id=user["user_id"],
+        platform="telegram",
+        platform_id=platform_id,
+        emotion_keys=emotion_keys,
+    )
+
+    await query.edit_message_text(
+        t(lang, "reminder.saved", valence=f"{mean_v:+.2f}", arousal=f"{mean_a:+.2f}"),
+        parse_mode="HTML",
+    )
+
+    # Clear session
+    context.user_data.pop(_SESSION_KEY, None)
+    context.user_data.pop(_SELECTED_KEY, None)
+    context.user_data.pop(_MSG_ID_KEY, None)
+
+    return ConversationHandler.END
+
+
+async def text_during_picker(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    assert update.effective_chat
+    platform_id = str(update.effective_chat.id)
+    user = await postgres.get_user_by_platform("telegram", platform_id)
+    lang = user["language"] if user else "en"
+    await update.message.reply_text(t(lang, "errors.use_buttons"), parse_mode="HTML")  # type: ignore[union-attr]
+    return EMOTION_SELECT
+
+
+def get_conversation_handler() -> ConversationHandler:
+    return ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(emotion_toggled, pattern=r"^emo:"),
+        ],
+        states={
+            EMOTION_SELECT: [
+                CallbackQueryHandler(emotion_toggled, pattern=r"^emo:"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, text_during_picker),
+            ],
+            CONFIRM: [
+                CallbackQueryHandler(entry_action, pattern=r"^entry:"),
+            ],
+        },
+        fallbacks=[
+            MessageHandler(filters.TEXT & ~filters.COMMAND, text_during_picker),
+        ],
+        per_message=True,
+        conversation_timeout=4 * 3600,  # 4 hours
+    )

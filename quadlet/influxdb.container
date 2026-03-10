@@ -1,0 +1,19 @@
+[Unit]
+Description=InfluxDB for Feelinq
+
+[Container]
+Image=docker.io/library/influxdb:2-alpine
+Environment=DOCKER_INFLUXDB_INIT_MODE=setup
+Environment=DOCKER_INFLUXDB_INIT_USERNAME=feelinq
+Environment=DOCKER_INFLUXDB_INIT_PASSWORD=feelinq123
+Environment=DOCKER_INFLUXDB_INIT_ORG=feelinq
+Environment=DOCKER_INFLUXDB_INIT_BUCKET=feelinq
+Volume=feelinq-influxdata:/var/lib/influxdb2
+Network=feelinq.network
+
+[Service]
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

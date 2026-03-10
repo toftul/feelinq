@@ -1,0 +1,17 @@
+[Unit]
+Description=PostgreSQL for Feelinq
+
+[Container]
+Image=docker.io/library/postgres:17-alpine
+Environment=POSTGRES_USER=feelinq
+Environment=POSTGRES_PASSWORD=feelinq
+Environment=POSTGRES_DB=feelinq
+Volume=feelinq-pgdata:/var/lib/postgresql/data
+Network=feelinq.network
+
+[Service]
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
