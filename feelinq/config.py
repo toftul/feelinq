@@ -4,10 +4,10 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     telegram_bot_token: str
     postgres_dsn: str = "postgresql://feelinq:feelinq@localhost:5432/feelinq"
-    influx_url: str = "http://localhost:8086"
+    influx_host: str = "localhost"
+    influx_port: int = 8181
     influx_token: str = ""
-    influx_org: str = "feelinq"
-    influx_bucket: str = "feelinq"
+    influx_database: str = "feelinq"
     admin_user_ids: str = ""
     webhook_url: str = ""
     log_level: str = "INFO"

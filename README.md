@@ -15,7 +15,7 @@ When multiple emotions are selected, the bot stores their mean valence and arous
 
 ## Setup
 
-Requires Python 3.12+, PostgreSQL, and InfluxDB 2.x.
+Requires Python 3.12+, PostgreSQL, and InfluxDB 3 Core.
 
 ```sh
 cp .env.example .env   # fill in TELEGRAM_BOT_TOKEN, DB credentials
@@ -47,7 +47,7 @@ All via environment variables (see `.env.example`):
 
 - `TELEGRAM_BOT_TOKEN` — from BotFather
 - `POSTGRES_DSN` — asyncpg connection string
-- `INFLUX_URL`, `INFLUX_TOKEN`, `INFLUX_ORG`, `INFLUX_BUCKET`
+- `INFLUX_HOST`, `INFLUX_PORT`, `INFLUX_TOKEN`, `INFLUX_DATABASE`
 - `ADMIN_USER_IDS` — comma-separated Telegram chat IDs
 - `WEBHOOK_URL` — optional; uses polling if absent
 - `LOG_LEVEL` — `DEBUG` or `INFO`

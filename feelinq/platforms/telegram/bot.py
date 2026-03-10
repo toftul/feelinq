@@ -28,7 +28,7 @@ def get_application() -> Application:
 async def post_init(application: Application) -> None:
     """Called after the Application is fully initialised."""
     await postgres.init()
-    await influx.init()
+    influx.init()
     load_locales()
 
     # Sync admin list
@@ -48,7 +48,7 @@ async def post_shutdown(application: Application) -> None:
     sched = scheduler.get_scheduler()
     if sched.running:
         sched.shutdown(wait=False)
-    await influx.close()
+    influx.close()
     await postgres.close()
     log.info("Bot shut down")
 
