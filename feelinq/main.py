@@ -16,16 +16,8 @@ def main() -> None:
 
     application = build_application()
 
-    if settings.webhook_url:
-        log.info("Starting in webhook mode: %s", settings.webhook_url)
-        application.run_webhook(
-            listen="0.0.0.0",
-            port=8443,
-            webhook_url=settings.webhook_url,
-        )
-    else:
-        log.info("Starting in polling mode")
-        application.run_polling(drop_pending_updates=True)
+    log.info("Starting in polling mode")
+    application.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":
