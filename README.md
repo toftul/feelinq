@@ -62,9 +62,6 @@ mkdir -p ~/.config/containers/systemd
 mkdir -p ~/feelinq-data/influx
 mkdir -p ~/feelinq-data/postgres
 
-# Fix ownership of the InfluxDB data dir for the container's uid (1500)
-podman unshare chown 1500:1500 ~/feelinq-data/influx
-
 # Install quadlet units and network
 cp quadlet/*.container quadlet/*.network ~/.config/containers/systemd/
 systemctl --user daemon-reload
