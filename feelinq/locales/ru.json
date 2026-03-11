@@ -17,6 +17,7 @@
   "settings.language": "Язык",
   "settings.weekly_summary": "Еженедельный отчёт",
   "settings.close": "Закрыть",
+  "settings.saved": "Настройки сохранены.",
   "settings.reminder_current": "Текущее окно: <b>{min}–{max} ч</b> после последнего чек-ина.\nВведите минимальные часы (1–23):",
   "settings.reminder_max": "Введите максимальные часы ({min}–23):",
   "settings.reminder_saved": "Окно напоминаний обновлено: <b>{min}–{max} ч</b>.",

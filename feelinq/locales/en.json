@@ -17,6 +17,7 @@
   "settings.language": "Language",
   "settings.weekly_summary": "Weekly summary",
   "settings.close": "Close",
+  "settings.saved": "Settings saved.",
   "settings.reminder_current": "Current window: <b>{min}–{max} h</b> after last check-in.\nSend minimum hours (1–23):",
   "settings.reminder_max": "Now send maximum hours ({min}–23):",
   "settings.reminder_saved": "Reminder window updated to <b>{min}–{max} h</b>.",

@@ -60,7 +60,7 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     action = query.data.split(":")[1]
 
     if action == "close":
-        await query.edit_message_text(t(lang, "settings.title"), parse_mode="HTML")
+        await query.edit_message_text(t(lang, "settings.saved"), parse_mode="HTML")
         return ConversationHandler.END
 
     if action == "back":
