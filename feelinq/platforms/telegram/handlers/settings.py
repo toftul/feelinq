@@ -133,11 +133,11 @@ async def reminder_min_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return ConversationHandler.END
 
     try:
-        val = int(update.message.text.strip())
-        if not (1 <= val <= 23):
+        val = float(update.message.text.strip())
+        if not (0.01 <= val <= 23):
             raise ValueError
     except ValueError:
-        await update.message.reply_text(t(lang, "settings.reminder_invalid", lo=1, hi=23), parse_mode="HTML")
+        await update.message.reply_text(t(lang, "settings.reminder_invalid", lo=0.01, hi=23), parse_mode="HTML")
         return REMINDER_MIN
 
     assert context.user_data is not None
@@ -156,7 +156,7 @@ async def reminder_max_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     min_h = context.user_data.get("set_min_h", 1)
 
     try:
-        val = int(update.message.text.strip())
+        val = float(update.message.text.strip())
         if not (min_h <= val <= 23):
             raise ValueError
     except ValueError:
