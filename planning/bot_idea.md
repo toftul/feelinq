@@ -1,6 +1,6 @@
 # Feelinq bot
 
-A bot for tracking your mood and emotional state over time. It periodically asks "how was your day?", collects emotion tags, stores everything in InfluxDB, and lets you view stats and trends overtime.
+A bot for tracking your mood and emotional state over time. It periodically asks "how was your day?", collects emotion tags, stores everything in TimescaleDB, and lets you view stats and trends overtime.
 
 ## How it works
 

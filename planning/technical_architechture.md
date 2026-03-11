@@ -11,12 +11,12 @@ feelinq/
 │   ├── emotions.py          # emotion catalog with valence/arousal values
 │   ├── i18n.py              # translation loader
 │   ├── scheduler.py         # APScheduler setup, reminder scheduling
-│   ├── entry_handler.py     # saves mood entry to InfluxDB
+│   ├── entry_handler.py     # saves mood entry to TimescaleDB
 │   ├── stats_engine.py      # generates charts
 │   └── admin.py             # admin stats helpers
 ├── db/
 │   ├── postgres.py          # user_settings CRUD
-│   └── influx.py            # mood entry read/write
+│   └── timescale.py         # mood entry read/write (TimescaleDB hypertable)
 ├── locales/
 │   ├── en.json
 │   └── ru.json
@@ -37,8 +37,7 @@ feelinq/
 ├── .env.example
 ├── quadlet/                 # Podman Quadlet unit files
 │   ├── feelinq.container
-│   ├── postgres.container
-│   └── influxdb.container
+│   └── postgres.container
 └── pyproject.toml
 ```
 
@@ -107,7 +106,7 @@ async def save_entry(user_id: str, platform: str, platform_id: str, emotion_keys
     mean_valence = mean(e.valence for e in emotions)
     mean_arousal = mean(e.arousal for e in emotions)
     entry = MoodEntry(user_id, platform, platform_id, mean_valence, mean_arousal, emotion_keys)
-    await influx.write(entry)
+    await timescale.write_mood_entry(...)
     next_reminder_at = now() + random_hours(settings.due_min_h, settings.due_max_h)
     await postgres.update_after_entry(user_id, last_entry_at=entry.timestamp, next_reminder_at=next_reminder_at)
     scheduler.reschedule(user_id, fire_at=next_reminder_at)
@@ -116,7 +115,7 @@ async def save_entry(user_id: str, platform: str, platform_id: str, emotion_keys
 
 ### Stats engine (`core/stats_engine.py`)
 
-Queries InfluxDB for a user's history and returns PNG byte buffers.
+Queries TimescaleDB for a user's history and returns PNG byte buffers.
 
 **Charts generated:**
 
@@ -312,21 +311,30 @@ Telegram `chat_id` integer as string). Lookups from platform events use
 `next_reminder_at` — persists the scheduled fire time so it is visible in
 settings and can be shown to the user ("next check-in in ~3 h").
 
-### InfluxDB — mood entries
+### TimescaleDB — mood entries
 
-- **Bucket:** `feelinq`
-- **Measurement:** `mood_entry`
-- **Tags:** `user_id` (internal UUID), `platform`, `platform_id`
-- **Fields:** `mean_valence` (float), `mean_arousal` (float), `emotions` (string, comma-separated)
-- **Timestamp:** UTC
+Mood entries are stored in a TimescaleDB hypertable in the same PostgreSQL
+database as `user_settings`. The hypertable is partitioned by `time` for
+efficient range queries.
 
-Example line protocol:
-```
-mood_entry,user_id=a3f2c1d0-8e4b-4f7a-b6c5-1234567890ab,platform=telegram,platform_id=123456 mean_valence=0.65,mean_arousal=0.2,emotions="happy,content" 1741600000000000000
+```sql
+CREATE TABLE mood_entry (
+    time         TIMESTAMPTZ      NOT NULL,
+    user_id      TEXT             NOT NULL,
+    platform     TEXT             NOT NULL,
+    platform_id  TEXT             NOT NULL,
+    mean_valence DOUBLE PRECISION NOT NULL,
+    mean_arousal DOUBLE PRECISION NOT NULL,
+    emotions     TEXT             NOT NULL  -- comma-separated emotion keys
+);
+
+SELECT create_hypertable('mood_entry', 'time', if_not_exists => TRUE);
+
+CREATE INDEX idx_mood_entry_user_time ON mood_entry (user_id, time DESC);
 ```
 
 Queries are always by internal `user_id`. `platform` and `platform_id` are
-carried as tags for debugging and potential cross-platform analytics.
+carried for debugging and potential cross-platform analytics.
 
 ---
 
@@ -509,7 +517,7 @@ Static reply (HTML-formatted) explaining:
 | User opens two reminder sessions | Second trigger is ignored if a session is already active (check context.user_data) |
 | Unknown /command | Ignore or reply "Unknown command. Use /help." |
 | DB unavailable at startup | Log and exit; systemd restarts via Quadlet |
-| InfluxDB write failure | Log error, notify user "Could not save, try again" |
+| DB write failure | Log error, notify user "Could not save, try again" |
 | Bot restarts mid-conversation | Conversation state is intentionally reset; user must restart the flow. Future improvement: persist state in `extra` JSONB and restore on startup. |
 
 ---
@@ -520,11 +528,7 @@ All secrets and tunables via environment variables (loaded with `pydantic-settin
 
 ```
 TELEGRAM_BOT_TOKEN
-POSTGRES_DSN          # postgresql+asyncpg://...
-INFLUX_URL
-INFLUX_TOKEN
-INFLUX_ORG
-INFLUX_BUCKET
+POSTGRES_DSN          # postgresql://...
 ADMIN_USER_IDS        # comma-separated Telegram platform_ids; synced to is_admin on startup
 WEBHOOK_URL           # optional; polling used if absent
 LOG_LEVEL             # DEBUG / INFO
@@ -543,8 +547,7 @@ managed by systemd directly (no daemon, rootless by default).
 | File | Service |
 |---|---|
 | `feelinq.container` | the bot application |
-| `postgres.container` | PostgreSQL |
-| `influxdb.container` | InfluxDB |
+| `postgres.container` | TimescaleDB (PostgreSQL) |
 
 Each `.container` file specifies the image, env file, volumes, and
 `After=` / `Requires=` dependencies so systemd starts them in order.

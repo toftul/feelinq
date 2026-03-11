@@ -8,7 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-from feelinq.db import influx
+from feelinq.db import timescale
 
 log = logging.getLogger(__name__)
 
@@ -16,7 +16,7 @@ MIN_ENTRIES = 5
 
 
 async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
-    entries = await influx.query_mood_entries(user_id, range_days=90)
+    entries = await timescale.query_mood_entries(user_id, range_days=90)
     if len(entries) < MIN_ENTRIES:
         return None
 
@@ -30,7 +30,7 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
 
 
 async def generate_weekly(user_id: str) -> tuple[str, bytes] | None:
-    entries = await influx.query_mood_entries(user_id, range_days=7)
+    entries = await timescale.query_mood_entries(user_id, range_days=7)
     if not entries:
         return None
     return ("Weekly circumplex", _circumplex_scatter(entries))

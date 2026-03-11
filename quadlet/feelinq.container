@@ -1,7 +1,7 @@
 [Unit]
 Description=Feelinq mood tracking bot
-After=postgres.service influxdb.service
-Requires=postgres.service influxdb.service
+After=postgres.service
+Requires=postgres.service
 
 [Container]
 Image=localhost/feelinq:latest

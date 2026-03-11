@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from feelinq.core.emotions import mean_valence_arousal
 from feelinq.core import scheduler
-from feelinq.db import influx, postgres
+from feelinq.db import timescale, postgres
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ async def save_entry(
     mean_v, mean_a = mean_valence_arousal(emotion_keys)
     now = datetime.now(timezone.utc)
 
-    await influx.write_mood_entry(
+    await timescale.write_mood_entry(
         user_id=user_id,
         platform=platform,
         platform_id=platform_id,

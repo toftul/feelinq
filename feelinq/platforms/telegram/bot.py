@@ -5,7 +5,7 @@ from telegram.ext import Application
 from feelinq.config import settings
 from feelinq.core import scheduler
 from feelinq.core.i18n import load_locales
-from feelinq.db import postgres, influx
+from feelinq.db import postgres, timescale
 from feelinq.platforms.telegram.handlers import (
     start,
     reminder,
@@ -28,7 +28,7 @@ def get_application() -> Application:
 async def post_init(application: Application) -> None:
     """Called after the Application is fully initialised."""
     await postgres.init()
-    influx.init()
+    await timescale.ensure_schema()
     load_locales()
 
     # Sync admin list
@@ -48,7 +48,6 @@ async def post_shutdown(application: Application) -> None:
     sched = scheduler.get_scheduler()
     if sched.running:
         sched.shutdown(wait=False)
-    influx.close()
     await postgres.close()
     log.info("Bot shut down")
 

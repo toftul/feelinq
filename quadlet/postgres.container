@@ -1,8 +1,8 @@
 [Unit]
-Description=PostgreSQL for Feelinq
+Description=TimescaleDB (PostgreSQL) for Feelinq
 
 [Container]
-Image=docker.io/library/postgres:18-alpine
+Image=docker.io/timescale/timescaledb:latest-pg17
 Environment=POSTGRES_USER=feelinq
 Environment=POSTGRES_PASSWORD=feelinq
 Environment=POSTGRES_DB=feelinq
