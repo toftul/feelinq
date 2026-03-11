@@ -61,8 +61,13 @@ systemctl --user start feelinq.service
 
 All via environment variables (see `.env.example`):
 
-- `TELEGRAM_BOT_TOKEN` — from BotFather
-- `POSTGRES_DSN` — asyncpg connection string
-- `INFLUX_HOST`, `INFLUX_PORT`, `INFLUX_TOKEN`, `INFLUX_DATABASE`
-- `ADMIN_USER_IDS` — comma-separated Telegram chat IDs
-- `LOG_LEVEL` — `DEBUG` or `INFO`
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TELEGRAM_BOT_TOKEN` | Bot token from [@BotFather](https://t.me/BotFather) | **required** |
+| `POSTGRES_DSN` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`) | `postgresql://feelinq:feelinq@localhost:5432/feelinq` |
+| `INFLUX_HOST` | InfluxDB hostname | `localhost` |
+| `INFLUX_PORT` | InfluxDB port | `8181` |
+| `INFLUX_TOKEN` | InfluxDB auth token; leave empty if running without authentication | *(empty)* |
+| `INFLUX_DATABASE` | InfluxDB database name | `feelinq` |
+| `ADMIN_USER_IDS` | Comma-separated Telegram chat IDs for admin access | *(empty)* |
+| `LOG_LEVEL` | `DEBUG` or `INFO` | `INFO` |
