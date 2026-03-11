@@ -45,7 +45,7 @@ Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and both databases runn
 
 #### Container deployment (Podman Quadlet)
 
-Runs the bot, PostgreSQL, and InfluxDB as rootless Podman containers managed by systemd. PostgreSQL database is created automatically by the official image. InfluxDB database is created automatically via the quadlet entrypoint script.
+Runs the bot, PostgreSQL, and InfluxDB as rootless Podman containers managed by systemd. PostgreSQL database is created automatically by the official image. InfluxDB runs without authentication and its database is created automatically via `ExecStartPost` after the container starts.
 
 The env file lives at `~/.config/feelinq/.env` (XDG convention), keeping secrets separate from the source tree.
 
@@ -58,9 +58,12 @@ mkdir -p ~/.config/feelinq
 cp .env.example ~/.config/feelinq/.env  # fill in TELEGRAM_BOT_TOKEN
 
 # Create dirs
-mkdir -p ~/.config/containers/systemd 
+mkdir -p ~/.config/containers/systemd
 mkdir -p ~/feelinq-data/influx
 mkdir -p ~/feelinq-data/postgres
+
+# Fix ownership of the InfluxDB data dir for the container's uid (1500)
+podman unshare chown 1500:1500 ~/feelinq-data/influx
 
 # Install quadlet units and network
 cp quadlet/*.container quadlet/*.network ~/.config/containers/systemd/

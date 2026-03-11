@@ -3,13 +3,14 @@ Description=InfluxDB 3 Core for Feelinq
 
 [Container]
 Image=quay.io/influxdb/influxdb3-core:latest
-Exec=sh -c 'influxdb3 serve --node-id=node0 --object-store=file --data-dir=/data & until influxdb3 show databases 2>/dev/null; do sleep 1; done; influxdb3 create database feelinq 2>/dev/null; wait'
+Exec=serve --node-id=node0 --object-store=file --data-dir=/data --without-auth
 Volume=%h/feelinq-data/influx:/data:Z
 Network=feelinq.network
 
 [Service]
 Restart=on-failure
 RestartSec=5
+ExecStartPost=/bin/sh -c 'i=0; while [ $i -lt 30 ]; do podman exec systemd-influxdb influxdb3 show databases 2>/dev/null && break; sleep 1; i=$((i+1)); done; podman exec systemd-influxdb influxdb3 create database feelinq 2>/dev/null; true'
 
 [Install]
 WantedBy=default.target
