@@ -28,13 +28,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     user = await postgres.get_user_by_platform("telegram", platform_id)
     if user:
-        # Returning user — jump to settings
-        lang = user["language"]
-        await update.message.reply_text(  # type: ignore[union-attr]
-            t(lang, "settings.title"),
-            reply_markup=keyboards.settings_menu_keyboard(lang),
-            parse_mode="HTML",
-        )
+        # Returning user — send emotion picker directly
+        from feelinq.platforms.telegram.handlers.reminder import send_reminder
+        await send_reminder(user["user_id"])
         return ConversationHandler.END
 
     await update.message.reply_text(  # type: ignore[union-attr]
