@@ -34,9 +34,21 @@ CREATE TABLE IF NOT EXISTS user_settings (
 """
 
 
+async def _init_connection(conn: asyncpg.Connection) -> None:
+    await conn.set_type_codec(
+        "jsonb",
+        encoder=json.dumps,
+        decoder=json.loads,
+        schema="pg_catalog",
+        format="text",
+    )
+
+
 async def init() -> None:
     global _pool
-    _pool = await asyncpg.create_pool(settings.postgres_dsn, min_size=2, max_size=10)
+    _pool = await asyncpg.create_pool(
+        settings.postgres_dsn, min_size=2, max_size=10, init=_init_connection
+    )
     async with _pool.acquire() as conn:
         await conn.execute(SCHEMA)
     log.info("PostgreSQL pool initialised")
