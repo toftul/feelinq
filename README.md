@@ -13,6 +13,8 @@ Examples: *Excited* = high valence, high arousal; *Relaxed* = high valence, low 
 
 When multiple emotions are selected, the bot stores their mean valence and arousal — a single point on the circumplex representing your overall state for that entry.
 
+![Russell circumplex model of affect](docs/images/russel_map.png)
+
 ## Setup
 
 Requires PostgreSQL and InfluxDB 3 Core. You can run everything locally or use containers.
