@@ -19,9 +19,45 @@ When multiple emotions are selected, the bot stores their mean valence and arous
 
 Requires PostgreSQL and InfluxDB 3 Core. The bot creates its PostgreSQL tables automatically on startup. InfluxDB uses schema-on-write, so no table setup is needed — only the database must exist.
 
-### Option 1: From scratch
+### Container deployment (Podman Quadlet)
 
-#### Run locally
+The primary deployment method. Runs the bot, PostgreSQL, and InfluxDB as rootless Podman containers managed by systemd.
+
+- PostgreSQL database and user are created automatically by the official image.
+- InfluxDB runs without authentication; its database is created automatically via `ExecStartPost` after the container starts.
+- The env file lives at `~/.config/feelinq/.env` (XDG convention), keeping secrets out of the source tree.
+- Inside the shared `feelinq.network`, containers reach each other by their systemd-assigned names: `systemd-postgres` and `systemd-influxdb`. **Do not use `localhost`** for these in the env file.
+
+```sh
+# Build the bot image
+podman build -t feelinq:latest .
+
+# Set up the env file
+mkdir -p ~/.config/feelinq
+cp .env.example ~/.config/feelinq/.env
+# Edit ~/.config/feelinq/.env and fill in TELEGRAM_BOT_TOKEN
+
+# Create persistent data directories
+mkdir -p ~/feelinq-data/influx ~/feelinq-data/postgres
+
+# Install quadlet units
+mkdir -p ~/.config/containers/systemd
+cp quadlet/*.container quadlet/*.network ~/.config/containers/systemd/
+
+# Reload systemd and start
+systemctl --user daemon-reload
+systemctl --user start feelinq.service
+```
+
+Check status:
+
+```sh
+systemctl --user status feelinq.service
+systemctl --user status postgres.service
+systemctl --user status influxdb.service
+```
+
+### Running locally (development)
 
 Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and both databases running separately.
 
@@ -38,52 +74,8 @@ Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and both databases runn
 
 3. Start the bot:
    ```sh
-   cp .env.example .env   # fill in TELEGRAM_BOT_TOKEN and DB credentials
-   uv sync
-   uv run feelinq
-   ```
-
-#### Container deployment (Podman Quadlet)
-
-Runs the bot, PostgreSQL, and InfluxDB as rootless Podman containers managed by systemd. PostgreSQL database is created automatically by the official image. InfluxDB runs without authentication and its database is created automatically via `ExecStartPost` after the container starts.
-
-The env file lives at `~/.config/feelinq/.env` (XDG convention), keeping secrets separate from the source tree.
-
-```sh
-# Build the bot image
-podman build -t feelinq:latest .
-
-# Set up the env file (separate from project to keep secrets out of the repo)
-mkdir -p ~/.config/feelinq
-cp .env.example ~/.config/feelinq/.env  # fill in TELEGRAM_BOT_TOKEN
-
-# Create dirs
-mkdir -p ~/.config/containers/systemd
-mkdir -p ~/feelinq-data/influx
-mkdir -p ~/feelinq-data/postgres
-
-# Install quadlet units and network
-cp quadlet/*.container quadlet/*.network ~/.config/containers/systemd/
-systemctl --user daemon-reload
-systemctl --user start feelinq.service
-```
-
-### Option 2: With existing databases
-
-If you already have PostgreSQL and InfluxDB running, just point the bot at them:
-
-1. Make sure the PostgreSQL database exists and is accessible with the credentials you provide.
-
-2. Make sure the InfluxDB database exists:
-   ```sh
-   influxdb3 create database feelinq   # safe to run if it already exists
-   ```
-
-3. Configure and start:
-   ```sh
    cp .env.example .env
-   # Set POSTGRES_DSN to your existing PostgreSQL instance
-   # Set INFLUX_HOST, INFLUX_PORT, INFLUX_TOKEN to your existing InfluxDB instance
+   # Edit .env: set TELEGRAM_BOT_TOKEN, and switch DB hosts to localhost (see comments in the file)
    uv sync
    uv run feelinq
    ```
@@ -107,8 +99,8 @@ All via environment variables (see `.env.example`):
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TELEGRAM_BOT_TOKEN` | Bot token from [@BotFather](https://t.me/BotFather) | **required** |
-| `POSTGRES_DSN` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`) | `postgresql://feelinq:feelinq@localhost:5432/feelinq` |
-| `INFLUX_HOST` | InfluxDB hostname | `localhost` |
+| `POSTGRES_DSN` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`) | `postgresql://feelinq:feelinq@systemd-postgres:5432/feelinq` (Quadlet); `localhost` for local dev |
+| `INFLUX_HOST` | InfluxDB hostname | `systemd-influxdb` (Quadlet); `localhost` for local dev |
 | `INFLUX_PORT` | InfluxDB port | `8181` |
 | `INFLUX_TOKEN` | InfluxDB auth token; leave empty if running without authentication | *(empty)* |
 | `INFLUX_DATABASE` | InfluxDB database name | `feelinq` |
