@@ -375,7 +375,8 @@ On first `/start`: generate a UUID4 `user_id`, store alongside `platform="telegr
 and `platform_id=<Telegram chat_id>` in Postgres. Set `is_admin=true` if this
 `platform_id` is present in `ADMIN_USER_IDS`.
 
-Re-entrant: running `/start` again jumps to settings if user already exists.
+Re-entrant: running `/start` again sends the emotion picker (same as a
+reminder) if user already exists.
 
 ```
 State LANGUAGE:
