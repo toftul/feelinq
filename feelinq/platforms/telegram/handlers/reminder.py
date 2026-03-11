@@ -42,10 +42,11 @@ async def send_reminder(user_id: str) -> None:
         log.debug("Skipping reminder for user %s — session already active", user_id)
         return
 
+    user_emotions = postgres.get_user_emotions(user)
     msg = await app.bot.send_message(
         chat_id=platform_id,
         text=t(lang, "reminder.prompt"),
-        reply_markup=keyboards.emotion_picker_keyboard(lang, set()),
+        reply_markup=keyboards.emotion_picker_keyboard(lang, set(), emotion_keys=user_emotions),
         parse_mode="HTML",
     )
 
@@ -108,8 +109,9 @@ async def emotion_toggled(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         selected.add(key)
     context.user_data[_SELECTED_KEY] = selected
 
+    user_emotions = postgres.get_user_emotions(user)
     await query.edit_message_reply_markup(
-        reply_markup=keyboards.emotion_picker_keyboard(lang, selected),
+        reply_markup=keyboards.emotion_picker_keyboard(lang, selected, emotion_keys=user_emotions),
     )
     return EMOTION_SELECT
 

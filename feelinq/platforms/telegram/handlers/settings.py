@@ -11,6 +11,7 @@ from telegram.ext import (
     filters,
 )
 
+from feelinq.core.emotions import validate_emotion_selection
 from feelinq.core.i18n import t
 from feelinq.core import scheduler
 from feelinq.db import postgres
@@ -18,7 +19,7 @@ from feelinq.platforms.telegram import keyboards
 
 log = logging.getLogger(__name__)
 
-MENU, REMINDER_MIN, REMINDER_MAX, TZ_REGION, TZ_CITY, LANG, WEEKLY = range(7)
+MENU, REMINDER_MIN, REMINDER_MAX, TZ_REGION, TZ_CITY, LANG, WEEKLY, EMOTIONS = range(8)
 
 
 async def _get_user_lang(update: Update) -> tuple[str, str, str]:
@@ -69,6 +70,18 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             parse_mode="HTML",
         )
         return MENU
+
+    if action == "emotions":
+        current = postgres.get_user_emotions(user)
+        selected = set(current) if current else set()
+        assert context.user_data is not None
+        context.user_data["set_emotions"] = selected
+        await query.edit_message_text(
+            t(lang, "emotions_chooser.prompt"),
+            reply_markup=keyboards.emotion_chooser_keyboard(lang, selected),
+            parse_mode="HTML",
+        )
+        return EMOTIONS
 
     if action == "reminder":
         await query.edit_message_text(
@@ -320,6 +333,49 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     return MENU
 
 
+async def emotions_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    assert query and query.data
+    await query.answer()
+
+    user_id, _, lang = await _get_user_lang(update)
+    if not user_id:
+        return ConversationHandler.END
+
+    assert context.user_data is not None
+    selected: set[str] = context.user_data.get("set_emotions", set())
+    key = query.data.split(":")[1]
+
+    if key == "_noop":
+        return EMOTIONS
+
+    if key == "done":
+        error = validate_emotion_selection(selected)
+        if error:
+            await query.answer(t(lang, f"emotions_chooser.error_{error}"), show_alert=True)
+            return EMOTIONS
+
+        await postgres.set_user_emotions(user_id, sorted(selected))
+        await query.edit_message_text(
+            t(lang, "emotions_chooser.saved"),
+            reply_markup=keyboards.settings_menu_keyboard(lang),
+            parse_mode="HTML",
+        )
+        return MENU
+
+    # Toggle
+    if key in selected:
+        selected.discard(key)
+    else:
+        selected.add(key)
+    context.user_data["set_emotions"] = selected
+
+    await query.edit_message_reply_markup(
+        reply_markup=keyboards.emotion_chooser_keyboard(lang, selected),
+    )
+    return EMOTIONS
+
+
 def get_conversation_handler() -> ConversationHandler:
     return ConversationHandler(
         entry_points=[CommandHandler("settings", settings_command)],
@@ -345,6 +401,9 @@ def get_conversation_handler() -> ConversationHandler:
             ],
             WEEKLY: [
                 CallbackQueryHandler(weekly_callback, pattern=r"^weekly:|^set:back$"),
+            ],
+            EMOTIONS: [
+                CallbackQueryHandler(emotions_callback, pattern=r"^echoose:"),
             ],
         },
         fallbacks=[CommandHandler("settings", settings_command)],

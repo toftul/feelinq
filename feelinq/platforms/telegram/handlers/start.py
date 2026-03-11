@@ -11,6 +11,7 @@ from telegram.ext import (
     filters,
 )
 
+from feelinq.core.emotions import validate_emotion_selection
 from feelinq.core.i18n import t
 from feelinq.core import scheduler
 from feelinq.db import postgres
@@ -18,7 +19,7 @@ from feelinq.platforms.telegram import keyboards
 
 log = logging.getLogger(__name__)
 
-LANGUAGE, TIMEZONE_REGION, TIMEZONE_CITY, DONE = range(4)
+LANGUAGE, TIMEZONE_REGION, TIMEZONE_CITY, EMOTIONS = range(4)
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -71,7 +72,7 @@ async def timezone_region_chosen(update: Update, context: ContextTypes.DEFAULT_T
 
     if query.data == "tz:UTC":
         context.user_data["onboard_tz"] = "UTC"
-        return await _finish_onboarding(update, context)
+        return await _show_emotion_chooser(update, context)
 
     region = query.data.split(":")[1]
     context.user_data["onboard_region"] = region
@@ -102,7 +103,7 @@ async def timezone_city_chosen(update: Update, context: ContextTypes.DEFAULT_TYP
 
     tz_name = query.data.split(":", 1)[1]
     context.user_data["onboard_tz"] = tz_name
-    return await _finish_onboarding(update, context)
+    return await _show_emotion_chooser(update, context)
 
 
 async def timezone_typed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -121,7 +122,56 @@ async def timezone_typed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return TIMEZONE_CITY
 
     context.user_data["onboard_tz"] = tz_text
-    return await _finish_onboarding(update, context)
+    return await _show_emotion_chooser(update, context)
+
+
+async def _show_emotion_chooser(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    assert context.user_data is not None
+    lang = context.user_data.get("onboard_lang", "en")
+    context.user_data["onboard_emotions"] = set()
+
+    text = t(lang, "emotions_chooser.prompt")
+    kb = keyboards.emotion_chooser_keyboard(lang, set())
+    if update.callback_query:
+        await update.callback_query.edit_message_text(text, reply_markup=kb, parse_mode="HTML")
+    else:
+        assert update.effective_chat
+        await update.effective_chat.send_message(text, reply_markup=kb, parse_mode="HTML")
+    return EMOTIONS
+
+
+async def emotion_chooser_toggled(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    assert query and query.data
+    await query.answer()
+
+    assert context.user_data is not None
+    lang = context.user_data.get("onboard_lang", "en")
+    selected: set[str] = context.user_data.get("onboard_emotions", set())
+    key = query.data.split(":")[1]
+
+    if key == "_noop":
+        return EMOTIONS
+
+    if key == "done":
+        error = validate_emotion_selection(selected)
+        if error:
+            await query.answer(t(lang, f"emotions_chooser.error_{error}"), show_alert=True)
+            return EMOTIONS
+        context.user_data["onboard_emotions"] = selected
+        return await _finish_onboarding(update, context)
+
+    # Toggle
+    if key in selected:
+        selected.discard(key)
+    else:
+        selected.add(key)
+    context.user_data["onboard_emotions"] = selected
+
+    await query.edit_message_reply_markup(
+        reply_markup=keyboards.emotion_chooser_keyboard(lang, selected),
+    )
+    return EMOTIONS
 
 
 async def _finish_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -134,6 +184,10 @@ async def _finish_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user = await postgres.create_user("telegram", platform_id, language=lang)
     user_id = user["user_id"]
     await postgres.update_user(user_id, timezone=tz)
+
+    chosen_emotions: set[str] = context.user_data.get("onboard_emotions", set())
+    if chosen_emotions:
+        await postgres.set_user_emotions(user_id, sorted(chosen_emotions))
 
     due_min = user["due_min_h"]
     due_max = user["due_max_h"]
@@ -168,6 +222,9 @@ def get_conversation_handler() -> ConversationHandler:
             TIMEZONE_CITY: [
                 CallbackQueryHandler(timezone_city_chosen, pattern=r"^tz:|^tz_back$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, timezone_typed),
+            ],
+            EMOTIONS: [
+                CallbackQueryHandler(emotion_chooser_toggled, pattern=r"^echoose:"),
             ],
         },
         fallbacks=[CommandHandler("cancel", cancel)],

@@ -1,3 +1,4 @@
+import json
 import uuid
 import logging
 from datetime import datetime
@@ -120,6 +121,25 @@ async def sync_admins(admin_platform_ids: list[str]) -> None:
         admin_platform_ids,
     )
     log.info("Admin sync complete for %d platform IDs", len(admin_platform_ids))
+
+
+def get_user_emotions(user: asyncpg.Record) -> list[str] | None:
+    """Return the user's chosen emotion keys from extra JSONB, or None if not set."""
+    extra = user["extra"]
+    if extra and "emotions" in extra:
+        return extra["emotions"]
+    return None
+
+
+async def set_user_emotions(user_id: str, emotion_keys: list[str]) -> None:
+    pool = _get_pool()
+    await pool.execute(
+        """UPDATE user_settings
+           SET extra = COALESCE(extra, '{}'::jsonb) || jsonb_build_object('emotions', $2::jsonb),
+               updated_at = now()
+           WHERE user_id = $1""",
+        user_id, json.dumps(emotion_keys),
+    )
 
 
 async def get_total_users() -> int:

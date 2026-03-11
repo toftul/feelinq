@@ -1,6 +1,14 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from feelinq.core.emotions import EMOTION_GRID
+from feelinq.core.emotions import (
+    EMOTION_CATALOG,
+    QUADRANT_LABELS,
+    emotions_by_quadrant,
+    make_grid,
+    validate_emotion_selection,
+    MIN_USER_EMOTIONS,
+    MAX_USER_EMOTIONS,
+)
 from feelinq.core.i18n import t
 
 # Timezone regions and representative cities
@@ -74,9 +82,14 @@ def timezone_cities_keyboard(region: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(rows)
 
 
-def emotion_picker_keyboard(lang: str, selected: set[str]) -> InlineKeyboardMarkup:
+def emotion_picker_keyboard(
+    lang: str,
+    selected: set[str],
+    emotion_keys: list[str] | None = None,
+) -> InlineKeyboardMarkup:
+    grid = make_grid(emotion_keys) if emotion_keys else make_grid(list(EMOTION_CATALOG.keys()))
     rows = []
-    for row_keys in EMOTION_GRID:
+    for row_keys in grid:
         buttons = []
         for key in row_keys:
             label = t(lang, f"emotions.{key}")
@@ -93,8 +106,38 @@ def emotion_picker_keyboard(lang: str, selected: set[str]) -> InlineKeyboardMark
     return InlineKeyboardMarkup(rows)
 
 
+def emotion_chooser_keyboard(lang: str, selected: set[str]) -> InlineKeyboardMarkup:
+    """Keyboard for choosing which emotions to track (onboarding / settings)."""
+    rows: list[list[InlineKeyboardButton]] = []
+    by_q = emotions_by_quadrant()
+
+    for q_key, q_label in QUADRANT_LABELS.items():
+        # Section header (non-clickable)
+        rows.append([InlineKeyboardButton(f"— {t(lang, f'quadrant.{q_key}')} —", callback_data="echoose:_noop")])
+        keys = by_q[q_key]
+        for row_keys in make_grid(keys):
+            buttons = []
+            for key in row_keys:
+                label = t(lang, f"emotions.{key}")
+                if key in selected:
+                    label = f"✅ {label}"
+                buttons.append(InlineKeyboardButton(label, callback_data=f"echoose:{key}"))
+            rows.append(buttons)
+
+    # Done button with count
+    error = validate_emotion_selection(selected)
+    count = len(selected)
+    if error:
+        done_label = t(lang, "emotions_chooser.count", count=count, min=MIN_USER_EMOTIONS, max=MAX_USER_EMOTIONS)
+    else:
+        done_label = t(lang, "emotions_chooser.done_button", count=count)
+    rows.append([InlineKeyboardButton(done_label, callback_data="echoose:done")])
+    return InlineKeyboardMarkup(rows)
+
+
 def settings_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
+        [InlineKeyboardButton(t(lang, "settings.emotions"), callback_data="set:emotions")],
         [InlineKeyboardButton(t(lang, "settings.reminder_window"), callback_data="set:reminder")],
         [InlineKeyboardButton(t(lang, "settings.reminders_toggle"), callback_data="set:reminders_toggle")],
         [InlineKeyboardButton(t(lang, "settings.timezone"), callback_data="set:tz")],
