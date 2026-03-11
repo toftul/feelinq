@@ -6,7 +6,7 @@ Image=docker.io/library/postgres:18-alpine
 Environment=POSTGRES_USER=feelinq
 Environment=POSTGRES_PASSWORD=feelinq
 Environment=POSTGRES_DB=feelinq
-Volume=feelinq-pgdata:/var/lib/postgresql/data
+Volume=%h/feelinq-data/postgres:/var/lib/postgresql/data:Z
 Network=feelinq.network
 
 [Service]
