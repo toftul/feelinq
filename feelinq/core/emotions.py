@@ -38,16 +38,10 @@ EMOTION_CATALOG: dict[str, Emotion] = {e.key: e for e in [
     Emotion("surprised",   +0.1, +0.8),
 ]}
 
-# Grid layout for the emotion picker keyboard (3 columns)
-# Arranged: top rows = high arousal, bottom rows = low arousal
-# Left = positive valence, right = negative valence
+GRID_COLUMNS = 3
 EMOTION_GRID: list[list[str]] = [
-    ["excited",      "elated",    "angry"],
-    ["enthusiastic", "surprised", "anxious"],
-    ["happy",        "stressed",  "frustrated"],
-    ["content",      "lonely",    "sad"],
-    ["peaceful",     "bored",     "tired"],
-    ["relaxed",      "calm",      "neutral"],
+    list(EMOTION_CATALOG.keys())[i:i + GRID_COLUMNS]
+    for i in range(0, len(EMOTION_CATALOG), GRID_COLUMNS)
 ]
 
 
