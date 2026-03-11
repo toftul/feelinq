@@ -3,10 +3,9 @@ Description=InfluxDB 3 Core for Feelinq
 
 [Container]
 Image=quay.io/influxdb/influxdb3-core:latest
-Exec=influxdb3 serve --node-id=node0 --object-store=file --data-dir=/data
+Exec=sh -c 'influxdb3 serve --node-id=node0 --object-store=file --data-dir=/data & until influxdb3 show databases 2>/dev/null; do sleep 1; done; influxdb3 create database feelinq 2>/dev/null; wait'
 Volume=feelinq-influxdata:/data
 Network=feelinq.network
-PublishPort=8181:8181
 
 [Service]
 Restart=on-failure
