@@ -57,6 +57,11 @@ podman build -t feelinq:latest .
 mkdir -p ~/.config/feelinq
 cp .env.example ~/.config/feelinq/.env  # fill in TELEGRAM_BOT_TOKEN
 
+# Create dirs
+mkdir -p ~/.config/containers/systemd 
+mkdir -p ~/feelinq-data/influx
+mkdir -p ~/feelinq-data/postgres
+
 # Install quadlet units and network
 cp quadlet/*.container quadlet/*.network ~/.config/containers/systemd/
 systemctl --user daemon-reload
