@@ -17,35 +17,73 @@ When multiple emotions are selected, the bot stores their mean valence and arous
 
 ## Setup
 
-Requires PostgreSQL and InfluxDB 3 Core. You can run everything locally or use containers.
+Requires PostgreSQL and InfluxDB 3 Core. The bot creates its PostgreSQL tables automatically on startup. InfluxDB uses schema-on-write, so no table setup is needed — only the database must exist.
 
-### Option 1: Run locally
+### Option 1: From scratch
 
-Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/). PostgreSQL and InfluxDB must be running separately.
+#### Run locally
 
-```sh
-cp .env.example .env   # fill in TELEGRAM_BOT_TOKEN, DB credentials
-uv sync
-uv run feelinq
-```
+Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and both databases running separately.
 
-### Option 2: Container deployment (Podman Quadlet)
+1. Create the PostgreSQL database:
+   ```sql
+   CREATE USER feelinq WITH PASSWORD 'feelinq';
+   CREATE DATABASE feelinq OWNER feelinq;
+   ```
 
-Runs the bot, PostgreSQL, and InfluxDB as rootless Podman containers managed by systemd.
+2. Create the InfluxDB database:
+   ```sh
+   influxdb3 create database feelinq
+   ```
+
+3. Start the bot:
+   ```sh
+   cp .env.example .env   # fill in TELEGRAM_BOT_TOKEN and DB credentials
+   uv sync
+   uv run feelinq
+   ```
+
+#### Container deployment (Podman Quadlet)
+
+Runs the bot, PostgreSQL, and InfluxDB as rootless Podman containers managed by systemd. PostgreSQL database is created automatically by the official image. InfluxDB database is created automatically via the quadlet entrypoint script.
+
+The env file lives at `~/.config/feelinq/.env` (XDG convention), keeping secrets separate from the source tree.
 
 ```sh
 # Build the bot image
 podman build -t feelinq:latest .
 
-# Set up the env file
+# Set up the env file (separate from project to keep secrets out of the repo)
 mkdir -p ~/.config/feelinq
 cp .env.example ~/.config/feelinq/.env  # fill in TELEGRAM_BOT_TOKEN
 
-# Install and start the quadlet units
-cp quadlet/*.container ~/.config/containers/systemd/
+# Install quadlet units and network
+cp quadlet/*.container quadlet/*.network ~/.config/containers/systemd/
 systemctl --user daemon-reload
 systemctl --user start feelinq.service
 ```
+
+### Option 2: With existing databases
+
+If you already have PostgreSQL and InfluxDB running, just point the bot at them:
+
+1. Make sure the PostgreSQL database exists and is accessible with the credentials you provide.
+
+2. Make sure the InfluxDB database exists:
+   ```sh
+   influxdb3 create database feelinq   # safe to run if it already exists
+   ```
+
+3. Configure and start:
+   ```sh
+   cp .env.example .env
+   # Set POSTGRES_DSN to your existing PostgreSQL instance
+   # Set INFLUX_HOST, INFLUX_PORT, INFLUX_TOKEN to your existing InfluxDB instance
+   uv sync
+   uv run feelinq
+   ```
+
+The bot will create the `user_settings` table in PostgreSQL if it doesn't exist and start writing mood entries to InfluxDB immediately.
 
 ## Commands
 
