@@ -50,27 +50,24 @@ I/O and call into core.
 
 ### Emotion catalog (`core/emotions.py`)
 
-A static list of emotions, each with:
+20 emotions with precise Russell circumplex coordinates. Each has:
 - `key`: short identifier (e.g. `"happy"`)
-- `label`: display name (e.g. `"Happy"`)
 - `valence`: float in [-1, 1]
 - `arousal`: float in [-1, 1]
 
-Example subset (Russell circumplex positions):
+Organised by quadrant:
+- **High energy, positive** (hp_ha): astonished, excited, happy, pleased, neutral
+- **Low energy, positive** (hp_la): peaceful, calm, relaxed, sleepy, tired
+- **High energy, negative** (lp_ha): angry, frustrated, anxious, annoyed, afraid, nervous
+- **Low energy, negative** (lp_la): sad, miserable, bored, droopy
 
-| key        | label      | valence | arousal |
-|------------|------------|---------|---------|
-| excited    | Excited    | +0.8    | +0.8    |
-| happy      | Happy      | +0.8    | +0.2    |
-| content    | Content    | +0.6    | -0.3    |
-| relaxed    | Relaxed    | +0.5    | -0.7    |
-| bored      | Bored      | -0.3    | -0.7    |
-| sad        | Sad        | -0.7    | -0.4    |
-| anxious    | Anxious    | -0.5    | +0.7    |
-| angry      | Angry      | -0.8    | +0.8    |
-| neutral    | Neutral    | 0.0     | 0.0     |
+**Per-user emotion selection:** during onboarding, each user picks 6–12 emotions
+(minimum 1 per quadrant). Their selection is stored in the `extra` JSONB field
+of `user_settings`. The reminder picker shows only the user's chosen subset;
+users with no selection see all emotions (backwards compatible). Selection can
+be changed anytime via `/settings → Emotions`.
 
-~16–20 emotions total, covering all four quadrants evenly.
+The grid layout is auto-generated from the catalog (3 columns).
 
 ### Scheduler (`core/scheduler.py`)
 
@@ -197,35 +194,35 @@ Each file is a flat-ish dict with dot-namespaced keys:
   "onboarding.choose_timezone": "What's your timezone?",
   "onboarding.done":           "You're all set! Your first check-in will arrive in {min}–{max} hours.",
 
-  "reminder.prompt":           "How are you feeling? Pick all that apply 👇",
-  "reminder.done_button":      "✅ Done",
-  "reminder.saved":            "Saved! 📊 Your mood: {valence} valence, {arousal} arousal",
-  "reminder.confirm":          "You selected: {emotions}\nMean valence: {valence}  Mean arousal: {arousal}",
+  "reminder.prompt":           "How are you feeling? Pick all that apply:",
+  "reminder.done_button":      "Done",
+  "reminder.saved":            "Saved! {emotions}\nMood: {valence} valence, {arousal} arousal",
 
-  "settings.title":            "⚙️ Settings",
-  "settings.reminder_window":  "Current window: {min}–{max} h after last check-in.\nSet minimum hours (1–23):",
+  "settings.title":            "Settings",
+  "settings.emotions":         "Emotions",
 
-  "stats.not_enough_data":     "Not enough data yet — you need at least 5 check-ins.",
+  "quadrant.hp_ha":            "High energy, positive",
+  "quadrant.lp_ha":            "High energy, negative",
 
-  "help.text":                 "...",
-  "feedback.sent":             "Thanks! Your feedback has been sent.",
-  "feedback.missing":          "Please add your message: /feedback <text>",
-  "errors.use_buttons":        "Please use the buttons 👆",
+  "emotions_chooser.prompt":   "Choose the emotions you want to track (6–12)...",
+  "emotions_chooser.done_button": "Done ({count} selected)",
+  "emotions_chooser.error_too_few": "Select at least 6 emotions.",
 
   "emotions.excited":  "Excited",
   "emotions.happy":    "Happy",
-  "emotions.content":  "Content",
-  "emotions.relaxed":  "Relaxed",
-  "emotions.bored":    "Bored",
+  "emotions.calm":     "Calm",
   "emotions.sad":      "Sad",
-  "emotions.anxious":  "Anxious",
   "emotions.angry":    "Angry",
-  "emotions.neutral":  "Neutral"
+  "..."
 }
 ```
 
+Key namespaces: `onboarding.*`, `reminder.*`, `settings.*`, `quadrant.*`,
+`emotions_chooser.*`, `emotions.*`, `stats.*`, `help.*`, `feedback.*`,
+`admin.*`, `errors.*`, `days.*`.
+
 Emotion labels are under the `emotions.*` namespace so the same keys are used
-when building the keyboard and when formatting the confirmation message.
+when building the keyboard and when formatting the saved message.
 
 ### Usage (`core/i18n.py`)
 
@@ -284,15 +281,15 @@ CREATE TABLE user_settings (
     platform_id           TEXT NOT NULL,     -- raw ID from the platform (e.g. Telegram chat_id)
     language              TEXT DEFAULT 'en',
     timezone              TEXT DEFAULT 'UTC',
-    due_min_h             INT DEFAULT 4,
-    due_max_h             INT DEFAULT 6,
+    due_min_h             REAL DEFAULT 4,     -- fractional hours allowed (e.g. 0.03 ≈ 2 min)
+    due_max_h             REAL DEFAULT 6,
     reminders_toggle      BOOLEAN DEFAULT true,
     weekly_summary_toggle BOOLEAN DEFAULT true,
     weekly_summary_day    INT DEFAULT 0,     -- 0=Monday … 6=Sunday
     is_admin              BOOLEAN DEFAULT false,
     last_entry_at         TIMESTAMPTZ,       -- when the user last submitted an entry
     next_reminder_at      TIMESTAMPTZ,       -- when the next reminder job is scheduled to fire
-    extra                 JSONB,             -- future-proof; future use: persisted conversation state
+    extra                 JSONB,             -- stores per-user data, e.g. {"emotions": ["happy", "sad", ...]}
     created_at            TIMESTAMPTZ DEFAULT now(),
     updated_at            TIMESTAMPTZ DEFAULT now(),
     UNIQUE (platform, platform_id)           -- one account per platform identity
@@ -383,17 +380,25 @@ Re-entrant: running `/start` again jumps to settings if user already exists.
 ```
 State LANGUAGE:
   Bot: "Welcome! Choose your language:"
-  Keyboard: [🇬🇧 English] [🇷🇺 Русский] (extend as needed)
-  → save language to DB
+  Keyboard: [English] [Русский] (extend as needed)
+  → save language in context
   → all subsequent onboarding messages are sent in the selected language
 
-State TIMEZONE:
+State TIMEZONE_REGION → TIMEZONE_CITY:
   Bot: "What's your timezone?"
   Keyboard: region buttons (Europe, Americas, Asia, Africa, Pacific, UTC)
   → tapping a region shows cities in that region (or user can type a city name)
-  → on valid tz selected: save to DB
+  → on valid tz selected: save to context
 
-State DONE:
+State EMOTIONS:
+  Bot: "Choose the emotions you want to track (6–12). Pick at least 1 from each group:"
+  Keyboard: all emotions grouped by quadrant, with section headers
+  → toggle selection with ✅ marks
+  → Done button shows count; validates min 6, max 12, min 1 per quadrant
+  → on done: save selection to context
+
+Finish:
+  → create user in DB, save language, timezone, and emotion selection
   Bot: short explainer about the Russell model + how reminders work
   "You're all set! Your first check-in will arrive in {due_min_h}–{due_max_h} hours."
   → schedule first reminder
@@ -410,39 +415,27 @@ opening message and sets the conversation state.
 ```
 State EMOTION_SELECT:
   Bot sends:
-    "How are you feeling? Pick all that apply 👇"
-    + InlineKeyboardMarkup (emotion grid, see below)
-    + "✅ Done" button (disabled / greyed label until ≥1 emotion selected)
+    "How are you feeling? Pick all that apply:"
+    + InlineKeyboardMarkup (user's chosen emotions in a 3-column grid)
+    + "Done" button (disabled label until ≥1 emotion selected)
 
   On emotion button tap:
     → toggle selection in user session data (selected = set stored in context.user_data)
     → edit_message_reply_markup to redraw keyboard with ✅ on selected items
     → if first selection: replace "Done" button label to active style
 
-State CONFIRM:
-  User taps Done → bot edits message to:
-    "You selected: Happy, Excited
-     Mean valence: +0.7  Mean arousal: +0.6
-     [💾 Save]  [🔄 Reset]"
-
-  On Save:
+  User taps Done:
     → call core.entry_handler.save_entry(...)
-    → bot sends: "Saved! 📊 Your mood: +0.7 valence, +0.6 arousal"
+    → bot edits message to: "Saved! Happy, Excited\nMood: +0.70 valence, +0.60 arousal"
     → END
-
-  On Reset:
-    → clear selection, return to EMOTION_SELECT state, redraw picker
 
 Timeout (4 h):
   → silently expire (ConversationHandler.TIMEOUT or job-based)
   → no message sent to user
 ```
 
-**Emotion grid layout** (4 columns, ~4–5 rows):
-
-Each button label: `"Happy"` when unselected, `"✅ Happy"` when selected.
-Buttons are arranged roughly by circumplex quadrant (high-arousal top,
-low-arousal bottom; positive-valence left, negative-valence right).
+The emotion picker only shows the user's chosen emotions (from onboarding /
+settings). Users with no selection see the full catalog.
 
 ---
 
@@ -450,17 +443,24 @@ low-arousal bottom; positive-valence left, negative-valence right).
 
 ```
 SETTINGS_MENU:
-  Bot: "⚙️ Settings" + inline keyboard:
-    [🔔 Reminder window]
-    [🌍 Timezone]
-    [🌐 Language]
-    [📊 Weekly summary]
-    [❌ Close]
+  Bot: "Settings" + inline keyboard:
+    [Emotions]
+    [Reminder window]
+    [Reminders toggle]
+    [Timezone]
+    [Language]
+    [Weekly summary]
+    [Close]
+
+EMOTIONS:
+  Same chooser as onboarding (quadrant-grouped grid, 6–12 selection)
+  → pre-populated with user's current selection
+  → save → back to menu
 
 REMINDER_WINDOW:
   Bot: "Current window: 4–6 h after last check-in.
-        Set minimum hours (1–23):"
-  User sends a number → validate → ask for max hours → save both → back to menu
+        Set minimum hours (0.01–23):"
+  User sends a number (float) → validate → ask for max hours → save both → back to menu
 
 TIMEZONE:
   Same region→city flow as onboarding
