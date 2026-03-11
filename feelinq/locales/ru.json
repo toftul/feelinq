@@ -8,10 +8,7 @@
   "reminder.prompt": "Как вы себя чувствуете? Выберите всё подходящее:",
   "reminder.done_button": "Готово",
   "reminder.done_button_disabled": "Выберите хотя бы одну",
-  "reminder.saved": "Сохранено! Настроение: валентность <b>{valence}</b>, возбуждение <b>{arousal}</b>",
-  "reminder.confirm": "Вы выбрали: <b>{emotions}</b>\nСредняя валентность: <b>{valence}</b>  Среднее возбуждение: <b>{arousal}</b>",
-  "reminder.save_button": "Сохранить",
-  "reminder.reset_button": "Сбросить",
+  "reminder.saved": "Сохранено! <b>{emotions}</b>\nНастроение: валентность <b>{valence}</b>, возбуждение <b>{arousal}</b>",
 
   "settings.title": "Настройки",
   "settings.reminder_window": "Окно напоминаний",

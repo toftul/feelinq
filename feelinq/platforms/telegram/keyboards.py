@@ -93,15 +93,6 @@ def emotion_picker_keyboard(lang: str, selected: set[str]) -> InlineKeyboardMark
     return InlineKeyboardMarkup(rows)
 
 
-def confirm_keyboard(lang: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton(t(lang, "reminder.save_button"), callback_data="entry:save"),
-            InlineKeyboardButton(t(lang, "reminder.reset_button"), callback_data="entry:reset"),
-        ],
-    ])
-
-
 def settings_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(t(lang, "settings.reminder_window"), callback_data="set:reminder")],
