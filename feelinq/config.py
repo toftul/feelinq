@@ -9,7 +9,6 @@ class Settings(BaseSettings):
     influx_token: str = ""
     influx_database: str = "feelinq"
     admin_user_ids: str = ""
-    webhook_url: str = ""
     log_level: str = "INFO"
 
     @property
