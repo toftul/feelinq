@@ -28,12 +28,13 @@
   "settings.back": "Back",
   "settings.all_reminders_on": "All reminders: ON",
   "settings.all_reminders_off": "All reminders: OFF",
+  "settings.all_reminders_custom": "All reminders: custom",
   "settings.checkin_on": "Check-ins: ON",
   "settings.checkin_off": "Check-ins: OFF",
   "settings.checkin_window": "Check-in window: {min}–{max} h",
   "settings.weekly_on": "Weekly: ON",
   "settings.weekly_off": "Weekly: OFF",
-  "settings.weekly_day_label": "Day: {day}",
+  "settings.weekly_day_label": "{day}, 9:00 AM",
 
   "stats.not_enough_data": "Not enough data yet — you need at least {min} check-ins.",
 

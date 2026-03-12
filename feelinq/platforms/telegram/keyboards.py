@@ -161,7 +161,13 @@ def reminders_submenu_keyboard(
     weekly_day: int,
 ) -> InlineKeyboardMarkup:
     all_on = reminders_on and weekly_on
-    all_label = t(lang, "settings.all_reminders_on") if all_on else t(lang, "settings.all_reminders_off")
+    all_off = not reminders_on and not weekly_on
+    if all_on:
+        all_label = t(lang, "settings.all_reminders_on")
+    elif all_off:
+        all_label = t(lang, "settings.all_reminders_off")
+    else:
+        all_label = t(lang, "settings.all_reminders_custom")
     checkin_label = t(lang, "settings.checkin_on") if reminders_on else t(lang, "settings.checkin_off")
     weekly_label = t(lang, "settings.weekly_on") if weekly_on else t(lang, "settings.weekly_off")
 

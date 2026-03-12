@@ -28,12 +28,13 @@
   "settings.back": "Назад",
   "settings.all_reminders_on": "Все напоминания: ВКЛ",
   "settings.all_reminders_off": "Все напоминания: ВЫКЛ",
+  "settings.all_reminders_custom": "Все напоминания: выборочно",
   "settings.checkin_on": "Чек-ины: ВКЛ",
   "settings.checkin_off": "Чек-ины: ВЫКЛ",
   "settings.checkin_window": "Окно чек-инов: {min}–{max} ч",
   "settings.weekly_on": "Еженедельный: ВКЛ",
   "settings.weekly_off": "Еженедельный: ВЫКЛ",
-  "settings.weekly_day_label": "День: {day}",
+  "settings.weekly_day_label": "{day}, 9:00",
 
   "stats.not_enough_data": "Недостаточно данных — нужно минимум {min} чек-инов.",
 
