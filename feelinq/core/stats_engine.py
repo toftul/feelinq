@@ -6,13 +6,30 @@ from datetime import datetime, timedelta, timezone
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.transforms as transforms
+from matplotlib.patches import Ellipse
 import numpy as np
 
+from feelinq.core.emotions import EMOTION_CATALOG
 from feelinq.db import timescale
 
 log = logging.getLogger(__name__)
 
 MIN_ENTRIES = 5
+
+# Quadrant colors matching the check-in emoji diagram
+_QUADRANT_COLORS = {
+    "lp_ha": "#e74c3c",  # 🟥 tense / angry
+    "hp_ha": "#f1c40f",  # 🟨 excited / happy
+    "lp_la": "#3498db",  # 🟦 sad / bored
+    "hp_la": "#2ecc71",  # 🟩 calm / relaxed
+}
+_QUADRANT_LABELS = {
+    "lp_ha": "Tense",
+    "hp_ha": "Excited",
+    "lp_la": "Sad",
+    "hp_la": "Calm",
+}
 
 
 async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
@@ -24,7 +41,9 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
     charts.append(("Valence over time", _valence_over_time(entries)))
     charts.append(("Arousal over time", _arousal_over_time(entries)))
     charts.append(("Circumplex scatter", _circumplex_scatter(entries)))
+    charts.append(("Quadrant distribution", _quadrant_distribution(entries)))
     charts.append(("Emotion frequency", _emotion_frequency(entries)))
+    charts.append(("Time of day", _time_of_day(entries)))
     charts.append(("Weekly heatmap", _weekly_heatmap(entries)))
     return charts
 
@@ -36,11 +55,110 @@ async def generate_weekly(user_id: str) -> tuple[str, bytes] | None:
     return ("Weekly circumplex", _circumplex_scatter(entries))
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _rolling_stats(
+    times: list[datetime],
+    values: list[float],
+    window_hours: int = 48,
+    step_hours: int = 5,
+) -> tuple[list[datetime], np.ndarray, np.ndarray]:
+    """Compute a rolling mean and std over a time-based window."""
+    if not times:
+        return [], np.array([]), np.array([])
+
+    t_arr = np.array([t.timestamp() for t in times])
+    v_arr = np.array(values)
+    window_s = window_hours * 3600
+
+    t_min, t_max = t_arr[0], t_arr[-1]
+    step_s = step_hours * 3600
+    centers = np.arange(t_min, t_max + step_s, step_s)
+
+    out_times: list[datetime] = []
+    out_mean: list[float] = []
+    out_std: list[float] = []
+
+    for c in centers:
+        mask = (t_arr >= c - window_s / 2) & (t_arr <= c + window_s / 2)
+        if mask.sum() < 2:
+            continue
+        out_times.append(datetime.fromtimestamp(c, tz=timezone.utc))
+        out_mean.append(float(v_arr[mask].mean()))
+        out_std.append(float(v_arr[mask].std()))
+
+    return out_times, np.array(out_mean), np.array(out_std)
+
+
+def _confidence_ellipse(
+    x: np.ndarray,
+    y: np.ndarray,
+    ax: plt.Axes,
+    n_std: float = 2.0,
+    facecolor: str = "none",
+    **kwargs,
+) -> Ellipse | None:
+    """Draw a covariance confidence ellipse. Returns None if not enough data."""
+    if len(x) < 3:
+        return None
+
+    cov = np.cov(x, y)
+    if cov[0, 0] == 0 or cov[1, 1] == 0:
+        return None
+
+    pearson = cov[0, 1] / np.sqrt(cov[0, 0] * cov[1, 1])
+    ell_radius_x = np.sqrt(1 + pearson)
+    ell_radius_y = np.sqrt(1 - pearson)
+    ellipse = Ellipse(
+        (0, 0),
+        width=ell_radius_x * 2,
+        height=ell_radius_y * 2,
+        facecolor=facecolor,
+        **kwargs,
+    )
+
+    scale_x = np.sqrt(cov[0, 0]) * n_std
+    scale_y = np.sqrt(cov[1, 1]) * n_std
+    mean_x = float(np.mean(x))
+    mean_y = float(np.mean(y))
+
+    transf = (
+        transforms.Affine2D()
+        .rotate_deg(45)
+        .scale(scale_x, scale_y)
+        .translate(mean_x, mean_y)
+    )
+    ellipse.set_transform(transf + ax.transData)
+    return ax.add_patch(ellipse)
+
+
+def _get_quadrant_key(v: float, a: float) -> str:
+    vk = "hp" if v >= 0 else "lp"
+    ak = "ha" if a >= 0 else "la"
+    return f"{vk}_{ak}"
+
+
+# ---------------------------------------------------------------------------
+# Charts
+# ---------------------------------------------------------------------------
+
 def _valence_over_time(entries: list[dict]) -> bytes:
     times = [e["time"] for e in entries]
     vals = [e["mean_valence"] for e in entries]
+
     fig, ax = plt.subplots(figsize=(8, 3))
-    ax.plot(times, vals, marker="o", linewidth=1.5, markersize=4, color="#4a90d9")
+
+    # Raw data points
+    ax.scatter(times, vals, s=12, alpha=0.35, color="#4a90d9", edgecolors="none", zorder=2)
+
+    # Rolling average ± std
+    rt, rm, rs = _rolling_stats(times, vals)
+    if len(rt) > 1:
+        ax.plot(rt, rm, linewidth=2, color="#4a90d9", zorder=3)
+        ax.fill_between(rt, rm - rs, rm + rs, color="#4a90d9", alpha=0.2, edgecolor="none")
+
     ax.axhline(0, color="gray", linewidth=0.5, linestyle="--")
     ax.set_ylim(-1.1, 1.1)
     ax.set_ylabel("Valence")
@@ -53,8 +171,18 @@ def _valence_over_time(entries: list[dict]) -> bytes:
 def _arousal_over_time(entries: list[dict]) -> bytes:
     times = [e["time"] for e in entries]
     vals = [e["mean_arousal"] for e in entries]
+
     fig, ax = plt.subplots(figsize=(8, 3))
-    ax.plot(times, vals, marker="o", linewidth=1.5, markersize=4, color="#d94a4a")
+
+    # Raw data points
+    ax.scatter(times, vals, s=12, alpha=0.35, color="#d94a4a", edgecolors="none", zorder=2)
+
+    # Rolling average ± std
+    rt, rm, rs = _rolling_stats(times, vals)
+    if len(rt) > 1:
+        ax.plot(rt, rm, linewidth=2, color="#d94a4a", zorder=3)
+        ax.fill_between(rt, rm - rs, rm + rs, color="#d94a4a", alpha=0.2, edgecolor="none")
+
     ax.axhline(0, color="gray", linewidth=0.5, linestyle="--")
     ax.set_ylim(-1.1, 1.1)
     ax.set_ylabel("Arousal")
@@ -65,13 +193,49 @@ def _arousal_over_time(entries: list[dict]) -> bytes:
 
 
 def _circumplex_scatter(entries: list[dict]) -> bytes:
-    vals = [e["mean_valence"] for e in entries]
-    aros = [e["mean_arousal"] for e in entries]
-    # Color by recency: older = lighter, newer = darker
-    colors = np.linspace(0.3, 1.0, len(entries))
+    vals = np.array([e["mean_valence"] for e in entries])
+    aros = np.array([e["mean_arousal"] for e in entries])
+
+    # Split into recent (last 14 days) vs all
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=14)
+    recent_mask = np.array([
+        (e["time"].replace(tzinfo=timezone.utc) if e["time"].tzinfo is None else e["time"]) >= cutoff
+        for e in entries
+    ])
 
     fig, ax = plt.subplots(figsize=(5, 5))
+
+    # All-time 2σ ellipse (grey)
+    _confidence_ellipse(
+        vals, aros, ax, n_std=2,
+        facecolor="lightgray", edgecolor="none", alpha=0.4, label="All time (2σ)",
+    )
+
+    # Recent 2σ ellipse (orange)
+    if recent_mask.sum() >= 3:
+        _confidence_ellipse(
+            vals[recent_mask], aros[recent_mask], ax, n_std=2,
+            facecolor="orange", edgecolor="none", alpha=0.35, label="Last 2 weeks (2σ)",
+        )
+
+    # Scatter points (colored by recency)
+    colors = np.linspace(0.3, 1.0, len(entries))
     ax.scatter(vals, aros, c=colors, cmap="Blues", edgecolors="black", linewidth=0.5, s=50, zorder=3)
+
+    # Emotion reference labels
+    for e in EMOTION_CATALOG.values():
+        if e.key == "neutral":
+            continue
+        ax.annotate(
+            e.key.capitalize(),
+            (e.valence, e.arousal),
+            fontsize=6, color="gray", alpha=0.7,
+            ha="center", va="bottom",
+            textcoords="offset points", xytext=(0, 3),
+        )
+
+    # Axes and quadrant lines
     ax.axhline(0, color="gray", linewidth=0.5)
     ax.axvline(0, color="gray", linewidth=0.5)
     ax.set_xlim(-1.2, 1.2)
@@ -80,11 +244,35 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
     ax.set_ylabel("Arousal (low → high)")
     ax.set_title("Russell Circumplex")
     ax.set_aspect("equal")
-    # Quadrant labels
-    ax.text(0.7, 0.9, "Excited", fontsize=8, color="gray", ha="center")
-    ax.text(-0.7, 0.9, "Tense", fontsize=8, color="gray", ha="center")
-    ax.text(0.7, -0.9, "Calm", fontsize=8, color="gray", ha="center")
-    ax.text(-0.7, -0.9, "Sad", fontsize=8, color="gray", ha="center")
+    ax.legend(loc="upper left", fontsize=7, framealpha=0.8)
+    fig.tight_layout()
+    return _fig_to_bytes(fig)
+
+
+def _quadrant_distribution(entries: list[dict]) -> bytes:
+    counts: dict[str, int] = {"hp_ha": 0, "lp_ha": 0, "hp_la": 0, "lp_la": 0}
+    for e in entries:
+        q = _get_quadrant_key(e["mean_valence"], e["mean_arousal"])
+        counts[q] += 1
+
+    total = sum(counts.values()) or 1
+    keys = list(_QUADRANT_LABELS.keys())
+    labels = [_QUADRANT_LABELS[k] for k in keys]
+    sizes = [counts[k] / total * 100 for k in keys]
+    bar_colors = [_QUADRANT_COLORS[k] for k in keys]
+
+    fig, ax = plt.subplots(figsize=(5, 3))
+    bars = ax.barh(labels[::-1], sizes[::-1], color=bar_colors[::-1])
+    for bar, pct in zip(bars, sizes[::-1]):
+        ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
+                f"{pct:.0f}%", va="center", fontsize=9)
+    ax.set_xlim(0, max(sizes) * 1.25 if sizes else 100)
+    ax.set_xlabel("% of check-ins")
+    ax.set_title("Quadrant distribution")
+    ax.xaxis.set_visible(False)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
     fig.tight_layout()
     return _fig_to_bytes(fig)
 
@@ -97,7 +285,6 @@ def _emotion_frequency(entries: list[dict]) -> bytes:
             for em in emotions_str.split(","):
                 counter[em.strip()] += 1
     if not counter:
-        # Return empty chart
         fig, ax = plt.subplots(figsize=(6, 3))
         ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
         fig.tight_layout()
@@ -110,6 +297,46 @@ def _emotion_frequency(entries: list[dict]) -> bytes:
     ax.barh(labels[::-1], counts[::-1], color="#4a90d9")
     ax.set_xlabel("Count")
     ax.set_title("Top emotions")
+    fig.tight_layout()
+    return _fig_to_bytes(fig)
+
+
+def _time_of_day(entries: list[dict]) -> bytes:
+    """Average valence and arousal by hour of day."""
+    hour_vals: dict[int, list[float]] = {h: [] for h in range(24)}
+    hour_aros: dict[int, list[float]] = {h: [] for h in range(24)}
+
+    for e in entries:
+        t = e["time"]
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        h = t.hour
+        hour_vals[h].append(e["mean_valence"])
+        hour_aros[h].append(e["mean_arousal"])
+
+    hours = list(range(24))
+    mean_v = [np.mean(hour_vals[h]) if hour_vals[h] else np.nan for h in hours]
+    mean_a = [np.mean(hour_aros[h]) if hour_aros[h] else np.nan for h in hours]
+    count = [len(hour_vals[h]) for h in hours]
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 4), sharex=True)
+
+    # Valence by hour
+    ax1.bar(hours, mean_v, color="#4a90d9", alpha=0.7, width=0.8)
+    ax1.axhline(0, color="gray", linewidth=0.5, linestyle="--")
+    ax1.set_ylim(-1.1, 1.1)
+    ax1.set_ylabel("Valence")
+    ax1.set_title("Mood by time of day")
+
+    # Arousal by hour
+    ax2.bar(hours, mean_a, color="#d94a4a", alpha=0.7, width=0.8)
+    ax2.axhline(0, color="gray", linewidth=0.5, linestyle="--")
+    ax2.set_ylim(-1.1, 1.1)
+    ax2.set_ylabel("Arousal")
+    ax2.set_xlabel("Hour of day")
+    ax2.set_xticks(range(0, 24, 3))
+    ax2.set_xticklabels([f"{h:02d}" for h in range(0, 24, 3)])
+
     fig.tight_layout()
     return _fig_to_bytes(fig)
 
