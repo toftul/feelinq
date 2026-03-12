@@ -53,6 +53,13 @@ systemctl --user daemon-reload
 systemctl --user start feelinq.service
 ```
 
+To start containers at boot:
+```sh
+# This keeps your user systemd running without login.
+sudo loginctl enable-linger $USER
+```
+
+
 Check status:
 
 ```sh
