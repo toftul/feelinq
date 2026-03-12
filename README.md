@@ -70,10 +70,16 @@ Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and TimescaleDB running
    CREATE DATABASE feelinq OWNER feelinq;
    ```
 
-2. Start the bot:
+2. Configure and start:
    ```sh
    cp .env.example .env
-   # Edit .env: set TELEGRAM_BOT_TOKEN, and switch DB host to localhost (see comments in the file)
+   ```
+   Edit `.env`: set `TELEGRAM_BOT_TOKEN` and uncomment the localhost DSN line:
+   ```
+   POSTGRES_DSN=postgresql://feelinq:feelinq@localhost:5432/feelinq
+   ```
+   Then run:
+   ```sh
    uv sync
    uv run feelinq
    ```
@@ -97,6 +103,6 @@ All via environment variables (see `.env.example`):
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `TELEGRAM_BOT_TOKEN` | Bot token from [@BotFather](https://t.me/BotFather) | **required** |
-| `POSTGRES_DSN` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`) | `postgresql://feelinq:feelinq@systemd-postgres:5432/feelinq` (Quadlet); `localhost` for local dev |
+| `POSTGRES_DSN` | PostgreSQL connection string (`postgresql://user:pass@host:port/db`) | `postgresql://feelinq:feelinq@localhost:5432/feelinq` |
 | `ADMIN_USER_IDS` | Comma-separated Telegram chat IDs for admin access | *(empty)* |
 | `LOG_LEVEL` | `DEBUG` or `INFO` | `INFO` |
