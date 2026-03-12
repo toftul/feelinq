@@ -62,12 +62,12 @@
   "quadrant.hp_la": "Низкая энергия, позитив",
   "quadrant.lp_la": "Низкая энергия, негатив",
 
-  "emotions_chooser.prompt": "Выберите эмоции для отслеживания (6–12).\nМинимум 1 из каждой группы:",
-  "emotions_chooser.count": "Выбрано {count} (нужно 6–12)",
+  "emotions_chooser.prompt": "Выберите эмоции для отслеживания (6–15).\nМинимум 1 из каждой группы:",
+  "emotions_chooser.count": "Выбрано {count} (нужно 6–15)",
   "emotions_chooser.done_button": "Готово ({count} выбрано)",
   "emotions_chooser.saved": "Эмоции обновлены.",
   "emotions_chooser.error_too_few": "Выберите минимум 6 эмоций.",
-  "emotions_chooser.error_too_many": "Выберите максимум 12 эмоций.",
+  "emotions_chooser.error_too_many": "Выберите максимум 15 эмоций.",
   "emotions_chooser.error_missing_quadrant": "Выберите хотя бы 1 из каждой группы.",
 
   "emotions.astonished": "Поражён",

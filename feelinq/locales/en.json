@@ -62,12 +62,12 @@
   "quadrant.hp_la": "Low energy, positive",
   "quadrant.lp_la": "Low energy, negative",
 
-  "emotions_chooser.prompt": "Choose the emotions you want to track (6–12).\nPick at least 1 from each group:",
-  "emotions_chooser.count": "{count} selected (need 6–12)",
+  "emotions_chooser.prompt": "Choose the emotions you want to track (6–15).\nPick at least 1 from each group:",
+  "emotions_chooser.count": "{count} selected (need 6–15)",
   "emotions_chooser.done_button": "Done ({count} selected)",
   "emotions_chooser.saved": "Emotions updated.",
   "emotions_chooser.error_too_few": "Select at least 6 emotions.",
-  "emotions_chooser.error_too_many": "Select at most 12 emotions.",
+  "emotions_chooser.error_too_many": "Select at most 15 emotions.",
   "emotions_chooser.error_missing_quadrant": "Pick at least 1 from each group.",
 
   "emotions.astonished": "Astonished",
