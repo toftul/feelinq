@@ -138,13 +138,52 @@ def emotion_chooser_keyboard(lang: str, selected: set[str]) -> InlineKeyboardMar
 def settings_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(t(lang, "settings.emotions"), callback_data="set:emotions")],
-        [InlineKeyboardButton(t(lang, "settings.reminder_window"), callback_data="set:reminder")],
-        [InlineKeyboardButton(t(lang, "settings.reminders_toggle"), callback_data="set:reminders_toggle")],
+        [InlineKeyboardButton(t(lang, "settings.reminders"), callback_data="set:reminders")],
         [InlineKeyboardButton(t(lang, "settings.timezone"), callback_data="set:tz")],
         [InlineKeyboardButton(t(lang, "settings.language"), callback_data="set:lang")],
-        [InlineKeyboardButton(t(lang, "settings.weekly_summary"), callback_data="set:weekly")],
         [InlineKeyboardButton(t(lang, "settings.close"), callback_data="set:close")],
     ])
+
+
+CHECKIN_WINDOWS = [(1, 3), (3, 5), (4, 6), (6, 12), (12, 24)]
+
+
+def _fmt_hours(v: float) -> str:
+    return str(int(v)) if v == int(v) else str(v)
+
+
+def reminders_submenu_keyboard(
+    lang: str,
+    reminders_on: bool,
+    weekly_on: bool,
+    due_min: float,
+    due_max: float,
+    weekly_day: int,
+) -> InlineKeyboardMarkup:
+    any_on = reminders_on or weekly_on
+    toggle_label = t(lang, "settings.master_off") if any_on else t(lang, "settings.master_on")
+    checkin_label = t(lang, "settings.checkin_label", min=_fmt_hours(due_min), max=_fmt_hours(due_max))
+    if weekly_on:
+        weekly_label = t(lang, "settings.weekly_label_on", day=t(lang, f"days.{weekly_day}")[:3])
+    else:
+        weekly_label = t(lang, "settings.weekly_label_off")
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(toggle_label, callback_data="rem:toggle")],
+        [InlineKeyboardButton(checkin_label, callback_data="rem:checkin")],
+        [InlineKeyboardButton(weekly_label, callback_data="rem:weekly")],
+        [InlineKeyboardButton(t(lang, "settings.back"), callback_data="rem:back")],
+    ])
+
+
+def checkin_window_keyboard(lang: str, current_min: float, current_max: float) -> InlineKeyboardMarkup:
+    rows = []
+    for min_h, max_h in CHECKIN_WINDOWS:
+        label = t(lang, "settings.hours_range", min=min_h, max=max_h)
+        if min_h == current_min and max_h == current_max:
+            label = f"✅ {label}"
+        rows.append([InlineKeyboardButton(label, callback_data=f"rem:w:{min_h}:{max_h}")])
+    rows.append([InlineKeyboardButton(t(lang, "settings.back"), callback_data="rem:back_sub")])
+    return InlineKeyboardMarkup(rows)
 
 
 def weekly_summary_keyboard(lang: str, is_on: bool) -> InlineKeyboardMarkup:
@@ -158,5 +197,5 @@ def weekly_summary_keyboard(lang: str, is_on: bool) -> InlineKeyboardMarkup:
         for i in range(7):
             day_buttons.append(InlineKeyboardButton(t(lang, f"days.{i}")[:3], callback_data=f"weekly:day:{i}"))
         rows.append(day_buttons)
-    rows.append([InlineKeyboardButton(t(lang, "settings.back"), callback_data="set:back")])
+    rows.append([InlineKeyboardButton(t(lang, "settings.back"), callback_data="weekly:back")])
     return InlineKeyboardMarkup(rows)

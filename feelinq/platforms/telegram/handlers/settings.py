@@ -19,7 +19,7 @@ from feelinq.platforms.telegram import keyboards
 
 log = logging.getLogger(__name__)
 
-MENU, REMINDER_MIN, REMINDER_MAX, TZ_REGION, TZ_CITY, LANG, WEEKLY, EMOTIONS = range(8)
+MENU, REMINDERS, TZ_REGION, TZ_CITY, LANG, WEEKLY, EMOTIONS = range(7)
 
 
 async def _get_user_lang(update: Update) -> tuple[str, str, str]:
@@ -83,31 +83,13 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         )
         return EMOTIONS
 
-    if action == "reminder":
+    if action == "reminders":
         await query.edit_message_text(
-            t(lang, "settings.reminder_current", min=user["due_min_h"], max=user["due_max_h"]),
+            t(lang, "settings.reminders"),
+            reply_markup=_reminders_kb(lang, user),
             parse_mode="HTML",
         )
-        return REMINDER_MIN
-
-    if action == "reminders_toggle":
-        current = user["reminders_toggle"]
-        new_val = not current
-        await postgres.update_user(user_id, reminders_toggle=new_val)
-        if new_val:
-            fire_at = scheduler.compute_fire_time(user["due_min_h"], user["due_max_h"])
-            await postgres.update_user(user_id, next_reminder_at=fire_at)
-            scheduler.schedule_reminder(user_id, "telegram", fire_at)
-            text = t(lang, "settings.reminders_enabled", min=user["due_min_h"], max=user["due_max_h"])
-        else:
-            scheduler.cancel_reminder(user_id)
-            text = t(lang, "settings.reminders_disabled")
-        await query.edit_message_text(
-            text,
-            reply_markup=keyboards.settings_menu_keyboard(lang),
-            parse_mode="HTML",
-        )
-        return MENU
+        return REMINDERS
 
     if action == "tz":
         await query.edit_message_text(
@@ -125,10 +107,89 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         )
         return LANG
 
-    if action == "weekly":
+    return MENU
+
+
+def _reminders_kb(lang: str, user: dict):
+    return keyboards.reminders_submenu_keyboard(
+        lang,
+        user["reminders_toggle"],
+        user["weekly_summary_toggle"],
+        user["due_min_h"],
+        user["due_max_h"],
+        user["weekly_summary_day"],
+    )
+
+
+async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    assert query and query.data
+    await query.answer()
+
+    user_id, _, lang = await _get_user_lang(update)
+    if not user_id:
+        return ConversationHandler.END
+
+    user = await postgres.get_user(user_id)
+    assert user is not None
+
+    data = query.data
+
+    if data == "rem:back":
+        await query.edit_message_text(
+            t(lang, "settings.title"),
+            reply_markup=keyboards.settings_menu_keyboard(lang),
+            parse_mode="HTML",
+        )
+        return MENU
+
+    if data == "rem:toggle":
+        any_on = user["reminders_toggle"] or user["weekly_summary_toggle"]
+        new_val = not any_on
+        await postgres.update_user(user_id, reminders_toggle=new_val, weekly_summary_toggle=new_val)
+        if new_val:
+            fire_at = scheduler.compute_fire_time(user["due_min_h"], user["due_max_h"])
+            await postgres.update_user(user_id, next_reminder_at=fire_at)
+            scheduler.schedule_reminder(user_id, "telegram", fire_at)
+        else:
+            scheduler.cancel_reminder(user_id)
+        user = await postgres.get_user(user_id)
+        assert user is not None
+        await query.edit_message_text(
+            t(lang, "settings.reminders"),
+            reply_markup=_reminders_kb(lang, user),
+            parse_mode="HTML",
+        )
+        return REMINDERS
+
+    if data == "rem:checkin":
+        await query.edit_message_text(
+            t(lang, "settings.checkin_prompt"),
+            reply_markup=keyboards.checkin_window_keyboard(lang, user["due_min_h"], user["due_max_h"]),
+            parse_mode="HTML",
+        )
+        return REMINDERS
+
+    if data.startswith("rem:w:"):
+        parts = data.split(":")
+        min_h, max_h = int(parts[2]), int(parts[3])
+        await postgres.update_user(user_id, due_min_h=min_h, due_max_h=max_h)
+        if user["reminders_toggle"]:
+            fire_at = scheduler.compute_fire_time(min_h, max_h)
+            await postgres.update_user(user_id, next_reminder_at=fire_at)
+            scheduler.reschedule(user_id, "telegram", fire_at)
+        user = await postgres.get_user(user_id)
+        assert user is not None
+        await query.edit_message_text(
+            t(lang, "settings.checkin_saved", min=min_h, max=max_h),
+            reply_markup=_reminders_kb(lang, user),
+            parse_mode="HTML",
+        )
+        return REMINDERS
+
+    if data == "rem:weekly":
         is_on = user["weekly_summary_toggle"]
         day_name = t(lang, f"days.{user['weekly_summary_day']}")
-        status = t(lang, "settings.weekly_toggle_off") if is_on else t(lang, "settings.weekly_toggle_on")
         await query.edit_message_text(
             t(lang, "settings.weekly_status", status="ON" if is_on else "OFF", day=day_name),
             reply_markup=keyboards.weekly_summary_keyboard(lang, is_on),
@@ -136,59 +197,15 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         )
         return WEEKLY
 
-    return MENU
+    if data == "rem:back_sub":
+        await query.edit_message_text(
+            t(lang, "settings.reminders"),
+            reply_markup=_reminders_kb(lang, user),
+            parse_mode="HTML",
+        )
+        return REMINDERS
 
-
-async def reminder_min_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    assert update.message and update.message.text
-    user_id, _, lang = await _get_user_lang(update)
-    if not user_id:
-        return ConversationHandler.END
-
-    try:
-        val = float(update.message.text.strip())
-        if not (0.01 <= val <= 23):
-            raise ValueError
-    except ValueError:
-        await update.message.reply_text(t(lang, "settings.reminder_invalid", lo=0.01, hi=23), parse_mode="HTML")
-        return REMINDER_MIN
-
-    assert context.user_data is not None
-    context.user_data["set_min_h"] = val
-    await update.message.reply_text(t(lang, "settings.reminder_max", min=val), parse_mode="HTML")
-    return REMINDER_MAX
-
-
-async def reminder_max_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    assert update.message and update.message.text
-    user_id, _, lang = await _get_user_lang(update)
-    if not user_id:
-        return ConversationHandler.END
-
-    assert context.user_data is not None
-    min_h = context.user_data.get("set_min_h", 1)
-
-    try:
-        val = float(update.message.text.strip())
-        if not (min_h <= val <= 23):
-            raise ValueError
-    except ValueError:
-        await update.message.reply_text(t(lang, "settings.reminder_invalid", lo=min_h, hi=23), parse_mode="HTML")
-        return REMINDER_MAX
-
-    await postgres.update_user(user_id, due_min_h=min_h, due_max_h=val)
-
-    # Reschedule
-    fire_at = scheduler.compute_fire_time(min_h, val)
-    await postgres.update_user(user_id, next_reminder_at=fire_at)
-    scheduler.reschedule(user_id, "telegram", fire_at)
-
-    await update.message.reply_text(
-        t(lang, "settings.reminder_saved", min=min_h, max=val),
-        reply_markup=keyboards.settings_menu_keyboard(lang),
-        parse_mode="HTML",
-    )
-    return MENU
+    return REMINDERS
 
 
 async def tz_region_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -316,21 +333,22 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if data.startswith("weekly:day:"):
         day = int(data.split(":")[2])
         await postgres.update_user(user_id, weekly_summary_day=day)
-        day_name = t(lang, f"days.{day}")
+        user = await postgres.get_user(user_id)
+        assert user is not None
         await query.edit_message_text(
             t(lang, "settings.weekly_saved"),
-            reply_markup=keyboards.settings_menu_keyboard(lang),
+            reply_markup=_reminders_kb(lang, user),
             parse_mode="HTML",
         )
-        return MENU
+        return REMINDERS
 
-    # back
+    # back → reminders submenu
     await query.edit_message_text(
-        t(lang, "settings.title"),
-        reply_markup=keyboards.settings_menu_keyboard(lang),
+        t(lang, "settings.reminders"),
+        reply_markup=_reminders_kb(lang, user),
         parse_mode="HTML",
     )
-    return MENU
+    return REMINDERS
 
 
 async def emotions_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -383,11 +401,8 @@ def get_conversation_handler() -> ConversationHandler:
             MENU: [
                 CallbackQueryHandler(menu_callback, pattern=r"^set:"),
             ],
-            REMINDER_MIN: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, reminder_min_input),
-            ],
-            REMINDER_MAX: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, reminder_max_input),
+            REMINDERS: [
+                CallbackQueryHandler(reminders_callback, pattern=r"^rem:"),
             ],
             TZ_REGION: [
                 CallbackQueryHandler(tz_region_callback, pattern=r"^tz_region:|^tz:UTC$"),
@@ -400,7 +415,7 @@ def get_conversation_handler() -> ConversationHandler:
                 CallbackQueryHandler(lang_callback, pattern=r"^lang:"),
             ],
             WEEKLY: [
-                CallbackQueryHandler(weekly_callback, pattern=r"^weekly:|^set:back$"),
+                CallbackQueryHandler(weekly_callback, pattern=r"^weekly:"),
             ],
             EMOTIONS: [
                 CallbackQueryHandler(emotions_callback, pattern=r"^echoose:"),
