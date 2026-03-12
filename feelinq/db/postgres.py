@@ -150,6 +150,8 @@ async def set_user_emotions(user_id: str, emotion_keys: list[str]) -> None:
     # Read current extra, merge in Python, write back as JSONB
     row = await pool.fetchrow("SELECT extra FROM user_settings WHERE user_id = $1", user_id)
     extra = row["extra"] if row and row["extra"] else {}
+    if isinstance(extra, str):
+        extra = json.loads(extra)
     extra["emotions"] = emotion_keys
     await pool.execute(
         """UPDATE user_settings SET extra = $2, updated_at = now()

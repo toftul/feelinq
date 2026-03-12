@@ -202,6 +202,8 @@ async def migrate(telegram_id: str, dry_run: bool, postgres_dsn: str) -> None:
                 "SELECT extra FROM user_settings WHERE user_id = $1", user_id
             )
             extra = (row["extra"] if row and row["extra"] else {}) or {}
+            if isinstance(extra, str):
+                extra = json.loads(extra)
             extra["emotions"] = selected_emotions
             await conn.execute(
                 "UPDATE user_settings SET extra = $2, updated_at = now() WHERE user_id = $1",
