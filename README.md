@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo.svg" alt="Feelinq logo" width="200">
+  <img src="docs/images/logo2.svg" alt="Feelinq logo" width="200">
 </p>
 
 # Feelinq
