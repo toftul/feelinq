@@ -34,7 +34,7 @@
   "settings.weekly_label_on": "Weekly: ON, {day}",
   "settings.weekly_label_off": "Weekly: OFF",
 
-  "stats.not_enough_data": "Not enough data yet — you need at least 5 check-ins.",
+  "stats.not_enough_data": "Not enough data yet — you need at least {min} check-ins.",
 
   "help.text": "<b>Feelinq</b> — track your emotional state over time.\n\nEmotions are placed on the <b>Russell circumplex model</b>:\n• <b>Valence</b> (x): pleasant → unpleasant\n• <b>Arousal</b> (y): energised → calm\n\n<b>Commands:</b>\n/start — set up your account\n/settings — change preferences\n/stats — view your mood charts\n/help — this message\n/feedback — send feedback to the team",
 

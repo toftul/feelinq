@@ -24,7 +24,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     charts = await stats_engine.generate_all(user["user_id"])
 
     if charts is None:
-        await update.message.reply_text(t(lang, "stats.not_enough_data"), parse_mode="HTML")
+        await update.message.reply_text(t(lang, "stats.not_enough_data", min=stats_engine.MIN_ENTRIES), parse_mode="HTML")
         return
 
     # Send as individual photos with captions
