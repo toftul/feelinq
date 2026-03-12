@@ -30,7 +30,8 @@
   "settings.back": "Back",
   "settings.master_on": "Turn on all",
   "settings.master_off": "Turn off all",
-  "settings.checkin_label": "Check-ins: {min}–{max} h",
+  "settings.checkin_label_on": "Check-ins: ON, {min}–{max} h",
+  "settings.checkin_label_off": "Check-ins: OFF",
   "settings.weekly_label_on": "Weekly: ON, {day}",
   "settings.weekly_label_off": "Weekly: OFF",
 

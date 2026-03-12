@@ -162,7 +162,10 @@ def reminders_submenu_keyboard(
 ) -> InlineKeyboardMarkup:
     any_on = reminders_on or weekly_on
     toggle_label = t(lang, "settings.master_off") if any_on else t(lang, "settings.master_on")
-    checkin_label = t(lang, "settings.checkin_label", min=_fmt_hours(due_min), max=_fmt_hours(due_max))
+    if reminders_on:
+        checkin_label = t(lang, "settings.checkin_label_on", min=_fmt_hours(due_min), max=_fmt_hours(due_max))
+    else:
+        checkin_label = t(lang, "settings.checkin_label_off")
     if weekly_on:
         weekly_label = t(lang, "settings.weekly_label_on", day=t(lang, f"days.{weekly_day}")[:3])
     else:
