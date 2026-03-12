@@ -30,8 +30,7 @@
   "settings.back": "Назад",
   "settings.master_on": "ВКЛ все",
   "settings.master_off": "ВЫКЛ все",
-  "settings.checkin_label_on": "Чек-ины: ВКЛ, {min}–{max} ч",
-  "settings.checkin_label_off": "Чек-ины: ВЫКЛ",
+  "settings.checkin_label": "Чек-ины: {min}–{max} ч",
   "settings.weekly_label_on": "Еженедельный: ВКЛ, {day}",
   "settings.weekly_label_off": "Еженедельный: ВЫКЛ",
 
