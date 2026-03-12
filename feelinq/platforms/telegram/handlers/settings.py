@@ -144,8 +144,9 @@ async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return MENU
 
     if data == "rem:toggle":
-        any_on = user["reminders_toggle"] or user["weekly_summary_toggle"]
-        new_val = not any_on
+        # Master: if both ON → set both OFF; otherwise set both ON
+        all_on = user["reminders_toggle"] and user["weekly_summary_toggle"]
+        new_val = not all_on
         await postgres.update_user(user_id, reminders_toggle=new_val, weekly_summary_toggle=new_val)
         if new_val:
             fire_at = scheduler.compute_fire_time(user["due_min_h"], user["due_max_h"])
@@ -153,6 +154,36 @@ async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
             scheduler.schedule_reminder(user_id, "telegram", fire_at)
         else:
             scheduler.cancel_reminder(user_id)
+        user = await postgres.get_user(user_id)
+        assert user is not None
+        await query.edit_message_text(
+            t(lang, "settings.reminders"),
+            reply_markup=_reminders_kb(lang, user),
+            parse_mode="HTML",
+        )
+        return REMINDERS
+
+    if data == "rem:toggle_checkin":
+        new_val = not user["reminders_toggle"]
+        await postgres.update_user(user_id, reminders_toggle=new_val)
+        if new_val:
+            fire_at = scheduler.compute_fire_time(user["due_min_h"], user["due_max_h"])
+            await postgres.update_user(user_id, next_reminder_at=fire_at)
+            scheduler.schedule_reminder(user_id, "telegram", fire_at)
+        else:
+            scheduler.cancel_reminder(user_id)
+        user = await postgres.get_user(user_id)
+        assert user is not None
+        await query.edit_message_text(
+            t(lang, "settings.reminders"),
+            reply_markup=_reminders_kb(lang, user),
+            parse_mode="HTML",
+        )
+        return REMINDERS
+
+    if data == "rem:toggle_weekly":
+        new_val = not user["weekly_summary_toggle"]
+        await postgres.update_user(user_id, weekly_summary_toggle=new_val)
         user = await postgres.get_user(user_id)
         assert user is not None
         await query.edit_message_text(
@@ -181,18 +212,16 @@ async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         user = await postgres.get_user(user_id)
         assert user is not None
         await query.edit_message_text(
-            t(lang, "settings.checkin_saved", min=min_h, max=max_h),
+            t(lang, "settings.reminders"),
             reply_markup=_reminders_kb(lang, user),
             parse_mode="HTML",
         )
         return REMINDERS
 
-    if data == "rem:weekly":
-        is_on = user["weekly_summary_toggle"]
-        day_name = t(lang, f"days.{user['weekly_summary_day']}")
+    if data == "rem:weekly_day":
         await query.edit_message_text(
-            t(lang, "settings.weekly_status", status="ON" if is_on else "OFF", day=day_name),
-            reply_markup=keyboards.weekly_summary_keyboard(lang, is_on),
+            t(lang, "settings.weekly_choose_day"),
+            reply_markup=keyboards.weekly_day_picker_keyboard(lang),
             parse_mode="HTML",
         )
         return WEEKLY
@@ -318,25 +347,13 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     assert user is not None
 
     data = query.data
-    if data == "weekly:toggle":
-        new_val = not user["weekly_summary_toggle"]
-        await postgres.update_user(user_id, weekly_summary_toggle=new_val)
-        is_on = new_val
-        day_name = t(lang, f"days.{user['weekly_summary_day']}")
-        await query.edit_message_text(
-            t(lang, "settings.weekly_status", status="ON" if is_on else "OFF", day=day_name),
-            reply_markup=keyboards.weekly_summary_keyboard(lang, is_on),
-            parse_mode="HTML",
-        )
-        return WEEKLY
-
     if data.startswith("weekly:day:"):
         day = int(data.split(":")[2])
         await postgres.update_user(user_id, weekly_summary_day=day)
         user = await postgres.get_user(user_id)
         assert user is not None
         await query.edit_message_text(
-            t(lang, "settings.weekly_saved"),
+            t(lang, "settings.reminders"),
             reply_markup=_reminders_kb(lang, user),
             parse_mode="HTML",
         )
