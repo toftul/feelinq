@@ -48,10 +48,55 @@ mkdir -p ~/feelinq-data/postgres
 mkdir -p ~/.config/containers/systemd
 cp quadlet/*.container quadlet/*.network ~/.config/containers/systemd/
 
-# Reload systemd and start
+# Reload systemd units
 systemctl --user daemon-reload
-systemctl --user start feelinq.service
+
+# Enable and start services
+systemctl --user enable --now feelinq.service
 ```
+
+
+### Enable background running (linger)
+
+Systemd **user services normally stop when you log out**.
+Since Feelinq is intended to run continuously (like a server), you should enable *linger*.
+
+Enable it once:
+
+```sh
+loginctl enable-linger $USER
+```
+
+What this does:
+
+* Allows your **user systemd instance** to run without an active login session
+* Keeps containers running after logout
+* Starts services automatically at boot
+* Required for reliable homelab/server-style deployments
+
+Without linger:
+
+* the bot stops when you log out
+* services restart only after logging back in
+
+With linger enabled:
+
+* Feelinq behaves like a persistent background service.
+
+You can verify:
+
+```sh
+loginctl show-user $USER | grep Linger
+```
+
+Expected output:
+
+```
+Linger=yes
+```
+
+
+### Service management
 
 Check status:
 
@@ -59,6 +104,25 @@ Check status:
 systemctl --user status feelinq.service
 systemctl --user status postgres.service
 ```
+
+Restart:
+
+```sh
+systemctl --user restart feelinq.service
+```
+
+Stop:
+
+```sh
+systemctl --user stop feelinq.service
+```
+
+Logs:
+
+```sh
+journalctl --user -u feelinq.service -f
+```
+
 
 ### Running locally (development)
 
