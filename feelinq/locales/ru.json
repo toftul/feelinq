@@ -8,7 +8,7 @@
   "reminder.prompt": "Как вы себя чувствуете? Выберите всё подходящее:",
   "reminder.done_button": "Готово",
   "reminder.done_button_disabled": "Выберите хотя бы одну",
-  "reminder.saved": "Сохранено! <b>{emotions}</b>\nНастроение: валентность <b>{valence}</b>, возбуждение <b>{arousal}</b>",
+  "reminder.saved": "Сохранено! <b>{emotions}</b>\n\n{diagram}",
 
   "settings.title": "Настройки",
   "settings.emotions": "Эмоции",

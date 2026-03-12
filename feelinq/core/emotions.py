@@ -94,3 +94,30 @@ def mean_valence_arousal(keys: list[str]) -> tuple[float, float]:
     v = sum(e.valence for e in emotions) / len(emotions)
     a = sum(e.arousal for e in emotions) / len(emotions)
     return round(v, 2), round(a, 2)
+
+
+# Quadrant keys: hp/lp = high/low pleasure (valence), ha/la = high/low arousal
+_QUADRANT_EMOJI = {
+    "lp_ha": "\U0001f7e5",  # 🟥 tense / angry
+    "hp_ha": "\U0001f7e8",  # 🟨 excited / happy
+    "lp_la": "\U0001f7e6",  # 🟦 sad / bored
+    "hp_la": "\U0001f7e9",  # 🟩 calm / relaxed
+}
+
+
+def quadrant_diagram(valence: float, arousal: float) -> str:
+    """Return a 2x2 emoji grid highlighting the active quadrant."""
+    v = "hp" if valence >= 0 else "lp"
+    a = "ha" if arousal >= 0 else "la"
+    active = f"{v}_{a}"
+    grid = [
+        ["lp_ha", "hp_ha"],
+        ["lp_la", "hp_la"],
+    ]
+    rows = []
+    for row in grid:
+        cells = []
+        for q in row:
+            cells.append(_QUADRANT_EMOJI[q] if q == active else "\u2b1c")
+        rows.append("".join(cells))
+    return "\n".join(rows)

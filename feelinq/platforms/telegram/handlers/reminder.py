@@ -9,6 +9,7 @@ from telegram.ext import (
     filters,
 )
 
+from feelinq.core.emotions import quadrant_diagram
 from feelinq.core.entry_handler import save_entry
 from feelinq.core.i18n import t
 from feelinq.db import postgres
@@ -90,8 +91,9 @@ async def emotion_toggled(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             emotion_keys=emotion_keys,
         )
 
+        diagram = quadrant_diagram(mean_v, mean_a)
         await query.edit_message_text(
-            t(lang, "reminder.saved", emotions=emotion_labels, valence=f"{mean_v:+.2f}", arousal=f"{mean_a:+.2f}"),
+            t(lang, "reminder.saved", emotions=emotion_labels, diagram=diagram),
             parse_mode="HTML",
         )
 

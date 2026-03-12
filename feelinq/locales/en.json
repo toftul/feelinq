@@ -8,7 +8,7 @@
   "reminder.prompt": "How are you feeling? Pick all that apply:",
   "reminder.done_button": "Done",
   "reminder.done_button_disabled": "Pick at least one",
-  "reminder.saved": "Saved! <b>{emotions}</b>\nMood: <b>{valence}</b> valence, <b>{arousal}</b> arousal",
+  "reminder.saved": "Saved! <b>{emotions}</b>\n\n{diagram}",
 
   "settings.title": "Settings",
   "settings.emotions": "Emotions",
