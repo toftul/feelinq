@@ -1,7 +1,7 @@
-# Migration from InfluxDB (v1 bot)
+# Migration from InfluxDB (v2 bot)
 
 The old bot stored data in InfluxDB 2. The new bot uses TimescaleDB (PostgreSQL).
-`migrate_from_influx.py` migrates a single user's data by Telegram ID.
+`scripts/migrate_from_influx.py` migrates a single user's data by Telegram ID.
 
 ## What is migrated
 
