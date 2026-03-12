@@ -138,6 +138,8 @@ async def sync_admins(admin_platform_ids: list[str]) -> None:
 def get_user_emotions(user: asyncpg.Record) -> list[str] | None:
     """Return the user's chosen emotion keys from extra JSONB, or None if not set."""
     extra = user["extra"]
+    if isinstance(extra, str):
+        extra = json.loads(extra)
     if extra and "emotions" in extra:
         return extra["emotions"]
     return None
