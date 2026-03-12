@@ -24,15 +24,15 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
-     inkscape:zoom="7.9999996"
-     inkscape:cx="30.937501"
-     inkscape:cy="3.0625001"
+     inkscape:zoom="22.627416"
+     inkscape:cx="29.101865"
+     inkscape:cy="25.168583"
      inkscape:window-width="3072"
      inkscape:window-height="1667"
      inkscape:window-x="0"
      inkscape:window-y="0"
      inkscape:window-maximized="1"
-     inkscape:current-layer="layer1">
+     inkscape:current-layer="g12">
     <inkscape:page
        x="0"
        y="0"
@@ -89,31 +89,22 @@
        transform="matrix(0.12470578,0,0,0.12470578,46.426653,48.959107)">
       <path
          style="fill:#bedeae;fill-opacity:1;stroke-width:4.18883;stroke-linejoin:round;stroke-dasharray:4.18883, 4.18883"
-         d="M 68.871918,-0.02182927 H 82.118593 V -18.085467 l -5.042766,1.505298 -4.591177,3.612724 -2.93534,5.644894 z"
-         id="path2-3" />
+         d="M 68.871918,-0.02182927 H 82.118593 V -17.687656 l -5.042766,1.107487 -4.591177,3.612724 -2.93534,5.644894 z"
+         id="path2-3"
+         sodipodi:nodetypes="ccccccc" />
       <path
          style="fill:#90bced;fill-opacity:1;stroke-width:4.18883;stroke-linejoin:round;stroke-dasharray:4.18883, 4.18883"
          d="M 82.118593,-0.02182927 V 17.623102 H 79.107979 L 75.419991,15.708596 71.581454,12.095864 69.323507,7.3541575 68.871951,-0.02182927 Z"
          id="path3-6" />
       <path
          style="fill:#fed19b;fill-opacity:1;stroke-width:4.18883;stroke-linejoin:round;stroke-dasharray:4.18883, 4.18883"
-         d="m 82.118593,-0.02182927 h 14.526179 c 0,0 -0.0754,-4.44064703 -0.150546,-4.74170683 -0.07539,-0.3010925 -2.107418,-5.0427661 -2.182692,-5.3438259 -0.0754,-0.301092 -2.634289,-4.064322 -2.634289,-4.064322 l -3.311648,-2.257956 -1.655836,-1.354776 -4.591177,-0.301094 z"
-         id="path4-1" />
+         d="m 82.118593,-0.02182927 h 14.526179 c 0,0 -0.0754,-4.44064703 -0.150546,-4.74170683 -0.07539,-0.3010925 -2.107418,-5.0427661 -2.182692,-5.3438259 -0.0754,-0.301092 -2.634289,-4.064322 -2.634289,-4.064322 l -3.311648,-2.257956 -1.987345,-0.592304 -4.259668,-0.566302 z"
+         id="path4-1"
+         sodipodi:nodetypes="ccccccccc" />
       <path
          style="fill:#dbb4d3;fill-opacity:1;stroke-width:4.18883;stroke-linejoin:round;stroke-dasharray:4.18883, 4.18883"
          d="M 82.118593,-0.02182927 V 17.623102 h 3.763263 l 5.042757,-2.591898 3.462203,-5.2685697 1.881623,-4.6664329 0.376325,-5.11803067 z"
          id="path5-2" />
-      <text
-         xml:space="preserve"
-         style="font-size:51.9085px;line-height:59.6138px;font-family:'Nimbus Sans';-inkscape-font-specification:'Nimbus Sans';text-align:center;text-decoration-color:#000000;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:#44546f;fill-opacity:1;stroke-width:6.1309;stroke-linejoin:round;stroke-dasharray:6.1309, 6.1309"
-         x="82.701202"
-         y="17.623098"
-         id="text1-2-2-9"><tspan
-           sodipodi:role="line"
-           id="tspan1-7-6-3"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:51.9085px;line-height:59.6138px;font-family:NewComputerModernMath;-inkscape-font-specification:NewComputerModernMath;fill:#44546f;fill-opacity:1;stroke-width:6.1309"
-           x="82.701202"
-           y="17.623098">Q</tspan></text>
       <ellipse
          style="fill:url(#radialGradient10);stroke:none;stroke-width:2.94752;stroke-linejoin:round;stroke-dasharray:2.94752, 2.94752"
          id="path8"
@@ -187,6 +178,17 @@
            id="path11"
            sodipodi:nodetypes="zzzzzzzzzzzzzz" />
       </g>
+      <text
+         xml:space="preserve"
+         style="font-size:51.9085px;line-height:59.6138px;font-family:'Nimbus Sans';-inkscape-font-specification:'Nimbus Sans';text-align:center;text-decoration-color:#000000;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:#44546f;fill-opacity:1;stroke-width:6.1309;stroke-linejoin:round;stroke-dasharray:6.1309, 6.1309"
+         x="82.701202"
+         y="17.623098"
+         id="text1-2-2-9"><tspan
+           sodipodi:role="line"
+           id="tspan1-7-6-3"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:51.9085px;line-height:59.6138px;font-family:NewComputerModernMath;-inkscape-font-specification:NewComputerModernMath;fill:#44546f;fill-opacity:1;stroke-width:6.1309"
+           x="82.701202"
+           y="17.623098">Q</tspan></text>
     </g>
   </g>
 </svg>
