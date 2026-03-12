@@ -32,8 +32,8 @@
   "settings.checkin_on": "Чек-ины: ВКЛ",
   "settings.checkin_off": "Чек-ины: ВЫКЛ",
   "settings.checkin_window": "Окно чек-инов: {min}–{max} ч",
-  "settings.weekly_on": "Еженедельный: ВКЛ",
-  "settings.weekly_off": "Еженедельный: ВЫКЛ",
+  "settings.weekly_on": "Еженедельный отчёт: ВКЛ",
+  "settings.weekly_off": "Еженедельный отчёт: ВЫКЛ",
   "settings.weekly_day_label": "{day}, 9:00",
 
   "stats.not_enough_data": "Недостаточно данных — нужно минимум {min} чек-инов.",

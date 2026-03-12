@@ -32,8 +32,8 @@
   "settings.checkin_on": "Check-ins: ON",
   "settings.checkin_off": "Check-ins: OFF",
   "settings.checkin_window": "Check-in window: {min}–{max} h",
-  "settings.weekly_on": "Weekly: ON",
-  "settings.weekly_off": "Weekly: OFF",
+  "settings.weekly_on": "Weekly reports: ON",
+  "settings.weekly_off": "Weekly reports: OFF",
   "settings.weekly_day_label": "{day}, 9:00 AM",
 
   "stats.not_enough_data": "Not enough data yet — you need at least {min} check-ins.",
