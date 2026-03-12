@@ -116,9 +116,9 @@ def _emotion_frequency(entries: list[dict]) -> bytes:
 
 def _weekly_heatmap(entries: list[dict]) -> bytes:
     now = datetime.now(timezone.utc)
-    # Build a grid: rows = weeks (last 8 weeks), cols = days of week (Mon-Sun)
     weeks = 8
-    grid = np.full((weeks, 7), np.nan)
+    valence_grid = np.full((weeks, 7), np.nan)
+    arousal_grid = np.full((weeks, 7), np.nan)
     counts = np.zeros((weeks, 7), dtype=int)
 
     for e in entries:
@@ -129,25 +129,46 @@ def _weekly_heatmap(entries: list[dict]) -> bytes:
         week_idx = weeks - 1 - (days_ago // 7)
         day_idx = t.weekday()
         if 0 <= week_idx < weeks:
-            if np.isnan(grid[week_idx, day_idx]):
-                grid[week_idx, day_idx] = 0
-            grid[week_idx, day_idx] += e["mean_valence"]
+            if np.isnan(valence_grid[week_idx, day_idx]):
+                valence_grid[week_idx, day_idx] = 0
+                arousal_grid[week_idx, day_idx] = 0
+            valence_grid[week_idx, day_idx] += e["mean_valence"]
+            arousal_grid[week_idx, day_idx] += e["mean_arousal"]
             counts[week_idx, day_idx] += 1
 
-    # Average
     with np.errstate(invalid="ignore"):
         mask = counts > 0
-        grid[mask] = grid[mask] / counts[mask]
+        valence_grid[mask] = valence_grid[mask] / counts[mask]
+        arousal_grid[mask] = arousal_grid[mask] / counts[mask]
 
-    fig, ax = plt.subplots(figsize=(7, 3))
-    cmap = plt.cm.RdYlGn  # type: ignore[attr-defined]
-    cmap.set_bad(color="#f0f0f0")
-    im = ax.imshow(grid, cmap=cmap, vmin=-1, vmax=1, aspect="auto")
-    ax.set_xticks(range(7))
-    ax.set_xticklabels(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
-    ax.set_ylabel("Week")
-    ax.set_title("Weekly valence heatmap")
-    fig.colorbar(im, ax=ax, shrink=0.8, label="Valence")
+    # Week labels: Monday date of each row
+    today_monday = now.date() - timedelta(days=now.weekday())
+    week_labels = [
+        (today_monday - timedelta(weeks=weeks - 1 - i)).strftime("%-d %b")
+        for i in range(weeks)
+    ]
+    day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    cmap_valence = plt.cm.RdYlGn   # type: ignore[attr-defined]
+    cmap_valence.set_bad(color="#e8e8e8")
+    cmap_arousal = plt.cm.RdYlBu_r  # type: ignore[attr-defined]
+    cmap_arousal.set_bad(color="#e8e8e8")
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+    for ax, grid, cmap, title, label in (
+        (ax1, valence_grid, cmap_valence, "Valence\n(negative → positive)", "Valence"),
+        (ax2, arousal_grid, cmap_arousal, "Arousal\n(calm → energised)", "Arousal"),
+    ):
+        im = ax.imshow(grid, cmap=cmap, vmin=-1, vmax=1, aspect="auto")
+        ax.set_xticks(range(7))
+        ax.set_xticklabels(day_labels)
+        ax.set_yticks(range(weeks))
+        ax.set_yticklabels(week_labels, fontsize=8)
+        ax.set_title(title)
+        fig.colorbar(im, ax=ax, shrink=0.8, label=label)
+
+    fig.suptitle("Weekly mood heatmap (last 8 weeks)", fontsize=11, y=1.01)
     fig.tight_layout()
     return _fig_to_bytes(fig)
 
