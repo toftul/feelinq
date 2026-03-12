@@ -42,6 +42,7 @@ EMOTION_CATALOG: dict[str, Emotion] = {e.key: e for e in [
 
 GRID_COLUMNS = 3
 
+# When changing these, also update hardcoded values in locales/*.json
 MIN_USER_EMOTIONS = 6
 MAX_USER_EMOTIONS = 15
 MIN_PER_QUADRANT = 1
