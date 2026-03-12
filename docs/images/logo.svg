@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="16.485914mm"
+   height="7.0343666mm"
+   viewBox="0 0 16.485914 7.0343668"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
+   sodipodi:docname="logo.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     inkscape:zoom="11.313708"
+     inkscape:cx="32.129164"
+     inkscape:cy="24.262601"
+     inkscape:window-width="3072"
+     inkscape:window-height="1667"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <inkscape:page
+       x="0"
+       y="0"
+       width="16.485914"
+       height="7.0343671"
+       id="page2"
+       margin="0"
+       bleed="0" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-43.542927,-46.034649)">
+    <text
+       xml:space="preserve"
+       style="font-size:4.23333px;line-height:4.86175px;font-family:'Nimbus Sans';-inkscape-font-specification:'Nimbus Sans';text-align:center;text-decoration-color:#000000;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:#44546f;fill-opacity:1;stroke-width:0.499999;stroke-linejoin:round;stroke-dasharray:0.499999, 0.499999"
+       x="49.409615"
+       y="50.520172"
+       id="text1-2"><tspan
+         sodipodi:role="line"
+         id="tspan1-7"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.23333px;line-height:4.86175px;font-family:NewComputerModern08;-inkscape-font-specification:NewComputerModern08;fill:#44546f;fill-opacity:1;stroke-width:0.5"
+         x="49.409615"
+         y="50.520172">feelin</tspan></text>
+    <path
+       style="fill:#bedeae;fill-opacity:1;stroke-width:0.499999;stroke-linejoin:round;stroke-dasharray:0.499999, 0.499999"
+       d="m 55.006902,49.129404 h 1.58119 v -2.156167 l -0.60193,0.17968 -0.548026,0.431233 -0.350377,0.673803 z"
+       id="path2" />
+    <path
+       style="fill:#90bced;fill-opacity:1;stroke-width:0.499999;stroke-linejoin:round;stroke-dasharray:0.499999, 0.499999"
+       d="m 56.588092,49.129404 v 2.106188 H 56.22873 l -0.440217,-0.228525 -0.458187,-0.431234 -0.26952,-0.565994 -0.0539,-0.880435 z"
+       id="path3" />
+    <path
+       style="fill:#fed19b;fill-opacity:1;stroke-width:0.499999;stroke-linejoin:round;stroke-dasharray:0.499999, 0.499999"
+       d="m 56.588092,49.129404 h 1.733918 c 0,0 -0.009,-0.530058 -0.01797,-0.565994 -0.009,-0.03594 -0.251552,-0.60193 -0.260537,-0.637866 -0.009,-0.03594 -0.314442,-0.485138 -0.314442,-0.485138 l -0.395295,-0.269521 -0.197649,-0.161713 -0.548026,-0.03594 z"
+       id="path4" />
+    <path
+       style="fill:#dbb4d3;fill-opacity:1;stroke-width:0.499999;stroke-linejoin:round;stroke-dasharray:0.499999, 0.499999"
+       d="m 56.588092,49.129404 v 2.106188 h 0.449202 l 0.601929,-0.309382 0.413266,-0.628883 0.2246,-0.557009 0.04492,-0.610914 z"
+       id="path5" />
+    <text
+       xml:space="preserve"
+       style="font-size:6.19606px;line-height:7.11581px;font-family:'Nimbus Sans';-inkscape-font-specification:'Nimbus Sans';text-align:center;text-decoration-color:#000000;writing-mode:lr-tb;direction:ltr;text-anchor:middle;fill:#44546f;fill-opacity:1;stroke-width:0.731815;stroke-linejoin:round;stroke-dasharray:0.731815, 0.731815"
+       x="56.657635"
+       y="51.235592"
+       id="text1-2-2"><tspan
+         sodipodi:role="line"
+         id="tspan1-7-6"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:6.19606px;line-height:7.11581px;font-family:NewComputerModernMath;-inkscape-font-specification:NewComputerModernMath;fill:#44546f;fill-opacity:1;stroke-width:0.731815"
+         x="56.657635"
+         y="51.235592">Q</tspan></text>
+  </g>
+</svg>
