@@ -400,6 +400,79 @@ def _weekly_heatmap(entries: list[dict]) -> bytes:
     return _fig_to_bytes(fig)
 
 
+def generate_circumplex_reference() -> bytes:
+    """Static circumplex map with all emotions from EMOTION_CATALOG.
+
+    Used by the /theory command to illustrate the model.
+    """
+    fig, ax = plt.subplots(figsize=(6, 6))
+
+    # Colored quadrant backgrounds
+    quad_bounds = {
+        "lp_ha": (-1.2, 0, 0, 1.2),   # xmin, xmax, ymin, ymax
+        "hp_ha": (0, 1.2, 0, 1.2),
+        "lp_la": (-1.2, 0, -1.2, 0),
+        "hp_la": (0, 1.2, -1.2, 0),
+    }
+    for q, (x0, x1, y0, y1) in quad_bounds.items():
+        ax.fill_between(
+            [x0, x1], y0, y1,
+            color=_QUADRANT_COLORS[q], alpha=0.10, zorder=0,
+        )
+
+    # Plot emotion dots and labels
+    for e in EMOTION_CATALOG.values():
+        if e.key == "neutral":
+            ax.plot(e.valence, e.arousal, "o", color="gray", markersize=6, zorder=3)
+            ax.annotate(
+                e.key.capitalize(), (e.valence, e.arousal),
+                fontsize=8, color="gray",
+                ha="center", va="bottom",
+                textcoords="offset points", xytext=(0, 6),
+            )
+            continue
+        q = _get_quadrant_key(e.valence, e.arousal)
+        ax.plot(e.valence, e.arousal, "o", color=_QUADRANT_COLORS[q], markersize=7, zorder=3)
+        ax.annotate(
+            e.key.capitalize(), (e.valence, e.arousal),
+            fontsize=8, fontweight="medium", color=_QUADRANT_COLORS[q],
+            ha="center", va="bottom",
+            textcoords="offset points", xytext=(0, 6),
+        )
+
+    # Axis arrows through origin
+    arrow_kw = dict(
+        arrowstyle="->,head_width=0.3,head_length=0.2",
+        color="black", lw=1.2,
+    )
+    ax.annotate("", xy=(1.25, 0), xytext=(-1.25, 0),
+                arrowprops=arrow_kw, annotation_clip=False)
+    ax.annotate("", xy=(0, 1.25), xytext=(0, -1.25),
+                arrowprops=arrow_kw, annotation_clip=False)
+
+    # Axis labels at arrow tips
+    ax.text(1.28, -0.06, "Pleasant", fontsize=10, ha="left", va="top")
+    ax.text(-1.28, -0.06, "Unpleasant", fontsize=10, ha="right", va="top")
+    ax.text(0.04, 1.28, "High energy", fontsize=10, ha="left", va="bottom")
+    ax.text(0.04, -1.28, "Low energy", fontsize=10, ha="left", va="top")
+
+    ax.set_xlim(-1.45, 1.45)
+    ax.set_ylim(-1.45, 1.45)
+    ax.set_aspect("equal")
+
+    # Remove default axes (we have arrows instead)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["bottom"].set_visible(False)
+    ax.spines["left"].set_visible(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    ax.set_title("Russell Circumplex Model of Affect", fontsize=12, pad=16)
+    fig.tight_layout()
+    return _fig_to_bytes(fig)
+
+
 def _fig_to_bytes(fig: plt.Figure) -> bytes:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
