@@ -255,24 +255,25 @@ def _quadrant_distribution(entries: list[dict]) -> bytes:
         q = _get_quadrant_key(e["mean_valence"], e["mean_arousal"])
         counts[q] += 1
 
-    total = sum(counts.values()) or 1
     keys = list(_QUADRANT_LABELS.keys())
     labels = [_QUADRANT_LABELS[k] for k in keys]
-    sizes = [counts[k] / total * 100 for k in keys]
-    bar_colors = [_QUADRANT_COLORS[k] for k in keys]
+    sizes = [counts[k] for k in keys]
+    colors = [_QUADRANT_COLORS[k] for k in keys]
 
-    fig, ax = plt.subplots(figsize=(5, 3))
-    bars = ax.barh(labels[::-1], sizes[::-1], color=bar_colors[::-1])
-    for bar, pct in zip(bars, sizes[::-1]):
-        ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
-                f"{pct:.0f}%", va="center", fontsize=9)
-    ax.set_xlim(0, max(sizes) * 1.25 if sizes else 100)
-    ax.set_xlabel("% of check-ins")
+    fig, ax = plt.subplots(figsize=(5, 5))
+    wedges, texts, autotexts = ax.pie(
+        sizes,
+        labels=labels,
+        colors=colors,
+        autopct="%1.0f%%",
+        startangle=90,
+        pctdistance=0.75,
+        wedgeprops=dict(edgecolor="white", linewidth=2),
+    )
+    for t in autotexts:
+        t.set_fontsize(10)
+        t.set_fontweight("bold")
     ax.set_title("Quadrant distribution")
-    ax.xaxis.set_visible(False)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["bottom"].set_visible(False)
     fig.tight_layout()
     return _fig_to_bytes(fig)
 
@@ -291,12 +292,28 @@ def _emotion_frequency(entries: list[dict]) -> bytes:
         return _fig_to_bytes(fig)
 
     top = counter.most_common(10)
-    labels = [t[0] for t in top]
+    labels = [t[0].capitalize() for t in top]
     counts = [t[1] for t in top]
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.barh(labels[::-1], counts[::-1], color="#4a90d9")
-    ax.set_xlabel("Count")
+    # Color each bar by its quadrant
+    bar_colors = []
+    for t in top:
+        em = EMOTION_CATALOG.get(t[0])
+        if em:
+            bar_colors.append(_QUADRANT_COLORS[_get_quadrant_key(em.valence, em.arousal)])
+        else:
+            bar_colors.append("#4a90d9")
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    bars = ax.bar(labels, counts, color=bar_colors, edgecolor="white", linewidth=0.5)
+    # Value labels on top of bars
+    for bar, c in zip(bars, counts):
+        ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.3,
+                str(c), ha="center", va="bottom", fontsize=9, fontweight="medium")
+    ax.set_ylabel("Count")
     ax.set_title("Top emotions")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    plt.xticks(rotation=35, ha="right")
     fig.tight_layout()
     return _fig_to_bytes(fig)
 
@@ -378,7 +395,7 @@ def _weekly_heatmap(entries: list[dict]) -> bytes:
 
     cmap_valence = plt.cm.RdYlGn   # type: ignore[attr-defined]
     cmap_valence.set_bad(color="#e8e8e8")
-    cmap_arousal = plt.cm.RdYlBu_r  # type: ignore[attr-defined]
+    cmap_arousal = plt.cm.PiYG_r  # type: ignore[attr-defined]
     cmap_arousal.set_bad(color="#e8e8e8")
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
