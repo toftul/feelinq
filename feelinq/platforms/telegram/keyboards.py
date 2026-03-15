@@ -89,6 +89,12 @@ def emotion_picker_keyboard(
 ) -> InlineKeyboardMarkup:
     grid = make_grid(emotion_keys) if emotion_keys else make_grid(list(EMOTION_CATALOG.keys()))
     rows = []
+    # Done button
+    if selected:
+        done_label = t(lang, "reminder.done_button")
+    else:
+        done_label = t(lang, "reminder.done_button_disabled")
+    rows.append([InlineKeyboardButton(done_label, callback_data="emo:done")])
     for row_keys in grid:
         buttons = []
         for key in row_keys:
@@ -97,12 +103,6 @@ def emotion_picker_keyboard(
                 label = f"✅ {label}"
             buttons.append(InlineKeyboardButton(label, callback_data=f"emo:{key}"))
         rows.append(buttons)
-    # Done button
-    if selected:
-        done_label = t(lang, "reminder.done_button")
-    else:
-        done_label = t(lang, "reminder.done_button_disabled")
-    rows.append([InlineKeyboardButton(done_label, callback_data="emo:done")])
     return InlineKeyboardMarkup(rows)
 
 
