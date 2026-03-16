@@ -485,7 +485,7 @@ def _year_calendar(entries: list[dict]) -> bytes:
         if month_vals:
             pos_pct = sum(1 for v in month_vals if v >= 0) / len(month_vals) * 100
             ax.text(
-                0.5, -0.06, f"{pos_pct:.0f}% positive",
+                0.5, -0.00, f"{pos_pct:.0f}% positive",
                 ha="center", va="top", transform=ax.transAxes,
                 fontsize=8, color="#555555", style="italic",
             )
@@ -534,24 +534,23 @@ def _year_calendar(entries: list[dict]) -> bytes:
                 )
                 ax.add_artist(Polygon(patch_coords, fc="w", alpha=0.7))
 
-    fig.suptitle("Mood Calendar", fontsize=16, fontweight="bold")
+    fig.suptitle("Mood Calendar", fontsize=16, fontweight="bold",
+                 x=0.04, ha="left")
 
-    # Horizontal colorbar with descriptive labels
+    # Colorbar: 25% of plot width, top-right next to title
+    cbar_ax = fig.add_axes([0.71, 0.91, 0.25, 0.015])  # [left, bottom, width, height]
     sm = plt.cm.ScalarMappable(
         cmap=cmap, norm=plt.Normalize(vmin=-1, vmax=1),
     )
     sm.set_array([])
-    cbar = fig.colorbar(
-        sm, ax=axes, orientation="horizontal",
-        fraction=0.02, pad=0.07, aspect=50,
-    )
+    cbar = fig.colorbar(sm, cax=cbar_ax, orientation="horizontal")
     cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
     cbar.set_ticklabels(
         ["Very negative", "Negative", "Neutral", "Positive", "Very positive"],
     )
-    cbar.ax.tick_params(labelsize=9)
+    cbar.ax.tick_params(labelsize=8, length=0)
 
-    plt.subplots_adjust(left=0.04, right=0.96, top=0.88, bottom=0.12, hspace=0.4)
+    plt.subplots_adjust(left=0.04, right=0.96, top=0.88, bottom=0.04, hspace=0.4)
     return _fig_to_bytes(fig)
 
 
