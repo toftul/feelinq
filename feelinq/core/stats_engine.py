@@ -48,7 +48,7 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
 
     # Year calendar uses a full year of data
     year_entries = await timescale.query_mood_entries(user_id, range_days=365)
-    charts.append(("Year calendar", _year_calendar_valence(year_entries)))
+    charts.append(("Mood calendar", _year_calendar_valence(year_entries)))
     charts.append(("Energy calendar", _year_calendar_arousal(year_entries)))
     return charts
 
