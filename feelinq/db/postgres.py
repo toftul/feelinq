@@ -118,6 +118,13 @@ async def get_all_active_users() -> list[asyncpg.Record]:
     )
 
 
+async def get_all_weekly_users() -> list[asyncpg.Record]:
+    pool = _get_pool()
+    return await pool.fetch(
+        "SELECT * FROM user_settings WHERE weekly_summary_toggle = true"
+    )
+
+
 async def get_admins() -> list[asyncpg.Record]:
     pool = _get_pool()
     return await pool.fetch("SELECT * FROM user_settings WHERE is_admin = true")

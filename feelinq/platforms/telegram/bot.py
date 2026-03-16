@@ -36,8 +36,9 @@ async def post_init(application: Application) -> None:
     if settings.admin_ids_list:
         await postgres.sync_admins(settings.admin_ids_list)
 
-    # Register reminder callback and schedule all users
+    # Register callbacks and schedule all users
     scheduler.register_reminder_callback("telegram", reminder.send_reminder)
+    scheduler.register_weekly_callback("telegram", reminder.send_weekly_summary)
     await scheduler.schedule_all_users()
     scheduler.start()
 

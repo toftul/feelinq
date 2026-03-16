@@ -1,3 +1,4 @@
+import io
 import logging
 
 from telegram import Update
@@ -12,6 +13,7 @@ from telegram.ext import (
 from feelinq.core.emotions import quadrant_diagram
 from feelinq.core.entry_handler import save_entry
 from feelinq.core.i18n import t
+from feelinq.core import stats_engine
 from feelinq.db import postgres
 from feelinq.platforms.telegram import keyboards
 
@@ -57,6 +59,29 @@ async def send_reminder(user_id: str) -> None:
     app.user_data[platform_id][_SESSION_KEY] = True
     app.user_data[platform_id][_SELECTED_KEY] = set()
     app.user_data[platform_id][_MSG_ID_KEY] = msg.message_id
+
+
+async def send_weekly_summary(user_id: str) -> None:
+    """Called by the scheduler. Sends the weekly circumplex chart."""
+    from feelinq.platforms.telegram.bot import get_application
+
+    app = get_application()
+    user = await postgres.get_user(user_id)
+    if not user:
+        return
+
+    platform_id = int(user["platform_id"])
+
+    result = await stats_engine.generate_weekly(user_id)
+    if not result:
+        return
+
+    caption, img_bytes = result
+    await app.bot.send_photo(
+        chat_id=platform_id,
+        photo=io.BytesIO(img_bytes),
+        caption=caption,
+    )
 
 
 async def emotion_toggled(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

@@ -152,8 +152,10 @@ async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
             fire_at = scheduler.compute_fire_time(user["due_min_h"], user["due_max_h"])
             await postgres.update_user(user_id, next_reminder_at=fire_at)
             scheduler.schedule_reminder(user_id, "telegram", fire_at)
+            scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"])
         else:
             scheduler.cancel_reminder(user_id)
+            scheduler.cancel_weekly(user_id)
         user = await postgres.get_user(user_id)
         assert user is not None
         await query.edit_message_text(
@@ -184,6 +186,10 @@ async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if data == "rem:toggle_weekly":
         new_val = not user["weekly_summary_toggle"]
         await postgres.update_user(user_id, weekly_summary_toggle=new_val)
+        if new_val:
+            scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"])
+        else:
+            scheduler.cancel_weekly(user_id)
         user = await postgres.get_user(user_id)
         assert user is not None
         await query.edit_message_text(
@@ -350,6 +356,8 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if data.startswith("weekly:day:"):
         day = int(data.split(":")[2])
         await postgres.update_user(user_id, weekly_summary_day=day)
+        if user["weekly_summary_toggle"]:
+            scheduler.schedule_weekly_summary(user_id, "telegram", day)
         user = await postgres.get_user(user_id)
         assert user is not None
         await query.edit_message_text(

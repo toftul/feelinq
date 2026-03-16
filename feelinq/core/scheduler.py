@@ -11,6 +11,7 @@ log = logging.getLogger(__name__)
 
 _scheduler: AsyncIOScheduler | None = None
 _reminder_callbacks: dict[str, Callable[[str], Awaitable[None]]] = {}
+_weekly_callbacks: dict[str, Callable[[str], Awaitable[None]]] = {}
 
 
 def get_scheduler() -> AsyncIOScheduler:
@@ -26,6 +27,25 @@ def register_reminder_callback(
 ) -> None:
     _reminder_callbacks[platform] = callback
     log.info("Registered reminder callback for platform: %s", platform)
+
+
+def register_weekly_callback(
+    platform: str,
+    callback: Callable[[str], Awaitable[None]],
+) -> None:
+    _weekly_callbacks[platform] = callback
+    log.info("Registered weekly summary callback for platform: %s", platform)
+
+
+async def _fire_weekly(user_id: str, platform: str) -> None:
+    callback = _weekly_callbacks.get(platform)
+    if not callback:
+        log.error("No weekly callback for platform '%s'", platform)
+        return
+    try:
+        await callback(user_id)
+    except Exception:
+        log.exception("Error firing weekly summary for user %s", user_id)
 
 
 def compute_fire_time(due_min_h: int, due_max_h: int) -> datetime:
@@ -78,7 +98,6 @@ def reschedule(user_id: str, platform: str, fire_at: datetime) -> None:
 
 async def schedule_all_users() -> None:
     users = await postgres.get_all_active_users()
-    scheduler = get_scheduler()
     count = 0
     for user in users:
         fire_at = compute_fire_time(user["due_min_h"], user["due_max_h"])
@@ -86,26 +105,45 @@ async def schedule_all_users() -> None:
         count += 1
     log.info("Scheduled reminders for %d active users", count)
 
+    weekly_users = await postgres.get_all_weekly_users()
+    weekly_count = 0
+    for user in weekly_users:
+        schedule_weekly_summary(
+            user["user_id"], user["platform"], user["weekly_summary_day"],
+        )
+        weekly_count += 1
+    log.info("Scheduled weekly summaries for %d users", weekly_count)
+
 
 def schedule_weekly_summary(
     user_id: str,
     platform: str,
     day_of_week: int,
-    hour: int,
-    callback: Callable[[str], Awaitable[None]],
+    hour: int = 10,
 ) -> None:
     scheduler = get_scheduler()
     job_id = f"weekly:{user_id}"
     days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
     scheduler.add_job(
-        callback,
+        _fire_weekly,
         "cron",
         day_of_week=days[day_of_week],
         hour=hour,
-        args=[user_id],
+        args=[user_id, platform],
         id=job_id,
         replace_existing=True,
     )
+    log.debug("Scheduled weekly summary for user %s on %s at %d:00",
+              user_id, days[day_of_week], hour)
+
+
+def cancel_weekly(user_id: str) -> None:
+    scheduler = get_scheduler()
+    job_id = f"weekly:{user_id}"
+    existing = scheduler.get_job(job_id)
+    if existing:
+        existing.remove()
+        log.debug("Cancelled weekly summary for user %s", user_id)
 
 
 def start() -> None:

@@ -54,10 +54,10 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
 
 
 async def generate_weekly(user_id: str) -> tuple[str, bytes] | None:
-    entries = await timescale.query_mood_entries(user_id, range_days=7)
+    entries = await timescale.query_mood_entries(user_id, range_days=90)
     if not entries:
         return None
-    return ("Weekly circumplex", _circumplex_scatter(entries))
+    return ("Weekly circumplex", _circumplex_scatter(entries, recent_days=7))
 
 
 # ---------------------------------------------------------------------------
@@ -197,13 +197,13 @@ def _arousal_over_time(entries: list[dict]) -> bytes:
     return _fig_to_bytes(fig)
 
 
-def _circumplex_scatter(entries: list[dict]) -> bytes:
+def _circumplex_scatter(entries: list[dict], recent_days: int = 14) -> bytes:
     vals = np.array([e["mean_valence"] for e in entries])
     aros = np.array([e["mean_arousal"] for e in entries])
 
-    # Split into recent (last 14 days) vs all
+    # Split into recent vs all
     now = datetime.now(timezone.utc)
-    cutoff = now - timedelta(days=14)
+    cutoff = now - timedelta(days=recent_days)
     recent_mask = np.array([
         (e["time"].replace(tzinfo=timezone.utc) if e["time"].tzinfo is None else e["time"]) >= cutoff
         for e in entries
@@ -236,7 +236,8 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
         _confidence_ellipse(
             vals[recent_mask], aros[recent_mask], ax, n_std=2,
             facecolor="none", edgecolor="red", linewidth=1.5,
-            label=r"Last 2 weeks (2$\sigma$)",
+            label=(r"Last week (2$\sigma$)" if recent_days <= 7
+                   else r"Last 2 weeks (2$\sigma$)"),
         )
 
     # Scatter points
@@ -428,7 +429,8 @@ def _year_calendar_arousal(entries: list[dict]) -> bytes:
     return _year_calendar_generic(
         entries,
         field="mean_arousal",
-        cmap=plt.cm.PiYG_r.copy(),  # type: ignore[attr-defined]
+        #cmap=plt.cm.PiYG_r.copy(),  # type: ignore[attr-defined]
+        cmap=plt.cm.BrBG_r.copy(),  # type: ignore[attr-defined]
         title="Energy Calendar",
         cbar_labels=["Very calm", "Calm", "Neutral", "Energised", "Very energised"],
         summary_label="high energy",
