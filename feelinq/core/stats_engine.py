@@ -48,7 +48,8 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
 
     # Year calendar uses a full year of data
     year_entries = await timescale.query_mood_entries(user_id, range_days=365)
-    charts.append(("Year calendar", _year_calendar(year_entries)))
+    charts.append(("Year calendar", _year_calendar_valence(year_entries)))
+    charts.append(("Energy calendar", _year_calendar_arousal(year_entries)))
     return charts
 
 
@@ -210,16 +211,11 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
 
     fig, ax = plt.subplots(figsize=(5, 5))
 
-    # All-time ellipses (light blue, stacked sigma bands)
-    color_all = "lightsteelblue"
+    # All-time ellipse
     _confidence_ellipse(
         vals, aros, ax, n_std=2,
-        facecolor=color_all, edgecolor="none", alpha=0.2,
+        facecolor="lightgray", edgecolor="none", alpha=0.2,
         label=r"All time (2$\sigma$)",
-    )
-    _confidence_ellipse(
-        vals, aros, ax, n_std=1,
-        facecolor=color_all, edgecolor="none", alpha=0.3,
     )
 
     # Recent ellipses (orange, stacked sigma bands)
@@ -229,14 +225,10 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
             facecolor="orange", edgecolor="none", alpha=0.15,
             label=r"Last 2 weeks (2$\sigma$)",
         )
-        _confidence_ellipse(
-            vals[recent_mask], aros[recent_mask], ax, n_std=1,
-            facecolor="orange", edgecolor="none", alpha=0.25,
-        )
 
     # Scatter points
     ax.scatter(
-        vals, aros, c="royalblue", s=20, alpha=0.2,
+        vals, aros, c="k", s=20, alpha=0.2,
         edgecolors="none", zorder=3,
     )
 
@@ -378,16 +370,46 @@ def _emotion_frequency(entries: list[dict]) -> bytes:
 
 
 
-def _year_calendar(entries: list[dict]) -> bytes:
-    """Last-12-months calendar heatmap colored by daily average valence."""
-    # Aggregate valence by date
+def _year_calendar_valence(entries: list[dict]) -> bytes:
+    return _year_calendar_generic(
+        entries,
+        field="mean_valence",
+        cmap=plt.cm.RdYlGn.copy(),  # type: ignore[attr-defined]
+        title="Mood Calendar",
+        cbar_labels=["Very negative", "Negative", "Neutral", "Positive", "Very positive"],
+        summary_label="positive",
+    )
+
+
+def _year_calendar_arousal(entries: list[dict]) -> bytes:
+    return _year_calendar_generic(
+        entries,
+        field="mean_arousal",
+        cmap=plt.cm.PiYG_r.copy(),  # type: ignore[attr-defined]
+        title="Energy Calendar",
+        cbar_labels=["Very calm", "Calm", "Neutral", "Energised", "Very energised"],
+        summary_label="high energy",
+    )
+
+
+def _year_calendar_generic(
+    entries: list[dict],
+    *,
+    field: str,
+    cmap: plt.cm.ScalarMappable,
+    title: str,
+    cbar_labels: list[str],
+    summary_label: str,
+) -> bytes:
+    """Last-12-months calendar heatmap for a given numeric field."""
+    # Aggregate field by date
     day_data: dict[date, list[float]] = {}
     for e in entries:
         t = e["time"]
         if t.tzinfo is None:
             t = t.replace(tzinfo=timezone.utc)
         d = t.date()
-        day_data.setdefault(d, []).append(e["mean_valence"])
+        day_data.setdefault(d, []).append(e[field])
 
     day_avg = {d: float(np.mean(vals)) for d, vals in day_data.items()}
 
@@ -404,7 +426,6 @@ def _year_calendar(entries: list[dict]) -> bytes:
     ]
     days_header = ["M", "T", "W", "T", "F", "S", "S"]
 
-    cmap = plt.cm.RdYlGn.copy()  # type: ignore[attr-defined]
     cmap.set_bad(color="#E8E8E8")
 
     fig, axes = plt.subplots(3, 4, figsize=(14.85, 10.5))
@@ -428,20 +449,19 @@ def _year_calendar(entries: list[dict]) -> bytes:
             if col == 6:
                 row += 1
 
-        # Positiveness: % of days with data that had valence >= 0
+        # Summary: % of days with data that had value >= 0
         month_vals = [day_avg[date(yr, mo, d)]
                       for d in range(1, num_days + 1)
                       if date(yr, mo, d) in day_avg]
 
         ax.imshow(day_vals, cmap=cmap, vmin=-1, vmax=1, aspect="auto")
 
-        title = f"{month_names[mo - 1]} {yr}"
-        ax.set_title(title, fontsize=11, fontweight="bold")
+        ax.set_title(f"{month_names[mo - 1]} {yr}", fontsize=11, fontweight="bold")
 
         if month_vals:
-            pos_pct = sum(1 for v in month_vals if v >= 0) / len(month_vals) * 100
+            pct = sum(1 for v in month_vals if v >= 0) / len(month_vals) * 100
             ax.text(
-                0.5, +0.05, f"{pos_pct:.0f}% positive",
+                0.5, +0.05, f"{pct:.0f}% {summary_label}",
                 ha="center", va="top", transform=ax.transAxes,
                 fontsize=8, color="#555555", style="italic",
             )
@@ -490,21 +510,19 @@ def _year_calendar(entries: list[dict]) -> bytes:
                 )
                 ax.add_artist(Polygon(patch_coords, fc="w", alpha=0.7))
 
-    fig.suptitle("Mood Calendar", fontsize=16, fontweight="bold",
+    fig.suptitle(title, fontsize=16, fontweight="bold",
                  x=0.04, ha="left")
 
     # Colorbar: 25% of plot width, top-right next to title
-    cbar_ax = fig.add_axes([0.71, 0.97, 0.25, 0.015])  # [left, bottom, width, height]
+    cbar_ax = fig.add_axes([0.71, 0.97, 0.25, 0.015])
     sm = plt.cm.ScalarMappable(
         cmap=cmap, norm=plt.Normalize(vmin=-1, vmax=1),
     )
     sm.set_array([])
-    cbar = fig.colorbar(sm, cax=cbar_ax, orientation="horizontal")
-    cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
-    cbar.set_ticklabels(
-        ["Very negative", "Negative", "Neutral", "Positive", "Very positive"],
-    )
-    cbar.ax.tick_params(labelsize=8, length=0)
+    cb = fig.colorbar(sm, cax=cbar_ax, orientation="horizontal")
+    cb.set_ticks([-1, -0.5, 0, 0.5, 1])
+    cb.set_ticklabels(cbar_labels)
+    cb.ax.tick_params(labelsize=8, length=0)
 
     plt.subplots_adjust(left=0.04, right=0.96, top=0.88, bottom=0.04, hspace=0.4)
     return _fig_to_bytes(fig)
