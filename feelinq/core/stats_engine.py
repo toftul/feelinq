@@ -34,30 +34,28 @@ _QUADRANT_LABELS = {
 
 
 async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
-    entries = await timescale.query_mood_entries(user_id, range_days=90)
-    if len(entries) < MIN_ENTRIES:
+    all_entries = await timescale.query_mood_entries(user_id, range_days=None)
+    if len(all_entries) < MIN_ENTRIES:
         return None
 
     charts: list[tuple[str, bytes]] = []
-    # charts.append(("Valence over time", _valence_over_time(entries)))
-    # charts.append(("Arousal over time", _arousal_over_time(entries)))
-    charts.append(("Circumplex scatter", _circumplex_scatter(entries)))
-    # charts.append(("Quadrant distribution", _quadrant_distribution(entries)))
-    # charts.append(("Emotion frequency", _emotion_frequency(entries)))
-    # charts.append(("Time of day", _time_of_day(entries)))
+    # charts.append(("Valence over time", _valence_over_time(all_entries)))
+    # charts.append(("Arousal over time", _arousal_over_time(all_entries)))
+    charts.append(("Circumplex scatter", _circumplex_scatter(all_entries)))
+    # charts.append(("Quadrant distribution", _quadrant_distribution(all_entries)))
+    # charts.append(("Emotion frequency", _emotion_frequency(all_entries)))
+    # charts.append(("Time of day", _time_of_day(all_entries)))
 
-    # Year calendar uses a full year of data
-    year_entries = await timescale.query_mood_entries(user_id, range_days=365)
-    charts.append(("Mood calendar", _year_calendar_valence(year_entries)))
-    charts.append(("Energy calendar", _year_calendar_arousal(year_entries)))
+    charts.append(("Mood calendar", _year_calendar_valence(all_entries)))
+    charts.append(("Energy calendar", _year_calendar_arousal(all_entries)))
     return charts
 
 
 async def generate_weekly(user_id: str) -> tuple[str, bytes] | None:
-    entries = await timescale.query_mood_entries(user_id, range_days=90)
-    if not entries:
+    all_entries = await timescale.query_mood_entries(user_id, range_days=None)
+    if not all_entries:
         return None
-    return ("Weekly circumplex", _circumplex_scatter(entries, recent_days=7))
+    return ("Weekly circumplex", _circumplex_scatter(all_entries, recent_days=7))
 
 
 # ---------------------------------------------------------------------------
@@ -432,7 +430,7 @@ def _year_calendar_arousal(entries: list[dict]) -> bytes:
         #cmap=plt.cm.PiYG_r.copy(),  # type: ignore[attr-defined]
         cmap=plt.cm.BrBG_r.copy(),  # type: ignore[attr-defined]
         title="Energy Calendar",
-        cbar_labels=["Very calm", "Calm", "Neutral", "Energised", "Very energised"],
+        cbar_labels=["Very low energy", "Low energy", "Neutral", "Energised", "Very energised"],
         summary_label="high energy",
     )
 

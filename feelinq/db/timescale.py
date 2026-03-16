@@ -53,16 +53,25 @@ async def write_mood_entry(
 
 async def query_mood_entries(
     user_id: str,
-    range_days: int = 30,
+    range_days: int | None = 30,
 ) -> list[dict]:
     pool = _get_pool()
-    rows = await pool.fetch(
-        "SELECT time, mean_valence, mean_arousal, emotions "
-        "FROM mood_entry "
-        "WHERE user_id = $1 AND time >= now() - make_interval(days => $2) "
-        "ORDER BY time",
-        user_id, range_days,
-    )
+    if range_days is None:
+        rows = await pool.fetch(
+            "SELECT time, mean_valence, mean_arousal, emotions "
+            "FROM mood_entry "
+            "WHERE user_id = $1 "
+            "ORDER BY time",
+            user_id,
+        )
+    else:
+        rows = await pool.fetch(
+            "SELECT time, mean_valence, mean_arousal, emotions "
+            "FROM mood_entry "
+            "WHERE user_id = $1 AND time >= now() - make_interval(days => $2) "
+            "ORDER BY time",
+            user_id, range_days,
+        )
     return [dict(r) for r in rows]
 
 
