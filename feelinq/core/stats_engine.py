@@ -1,11 +1,13 @@
+import calendar
 import io
 import logging
-from collections import Counter
-from datetime import datetime, timedelta, timezone
+from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta, timezone
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import matplotlib.transforms as transforms
 from matplotlib.patches import Ellipse
 import numpy as np
@@ -45,6 +47,7 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
     charts.append(("Emotion frequency", _emotion_frequency(entries)))
     charts.append(("Time of day", _time_of_day(entries)))
     charts.append(("Weekly heatmap", _weekly_heatmap(entries)))
+    charts.append(("Calendar heatmap", _calendar_heatmap(entries)))
     return charts
 
 
@@ -413,6 +416,120 @@ def _weekly_heatmap(entries: list[dict]) -> bytes:
         fig.colorbar(im, ax=ax, shrink=0.8, label=label)
 
     fig.suptitle("Weekly mood heatmap (last 8 weeks)", fontsize=11, y=1.01)
+    fig.tight_layout()
+    return _fig_to_bytes(fig)
+
+
+def _calendar_heatmap(entries: list[dict]) -> bytes:
+    """GitHub-style calendar heatmap colored by daily mean valence."""
+    # Aggregate mean valence per date
+    day_vals: dict[date, list[float]] = defaultdict(list)
+    for e in entries:
+        t = e["time"]
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        day_vals[t.date()].append(e["mean_valence"])
+
+    day_means = {d: np.mean(vs) for d, vs in day_vals.items()}
+
+    if not day_means:
+        fig, ax = plt.subplots(figsize=(6, 2))
+        ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
+        fig.tight_layout()
+        return _fig_to_bytes(fig)
+
+    # Date range: from the 1st of the earliest month to the last of the latest month
+    min_date = min(day_means)
+    max_date = max(day_means)
+    first_of_month = min_date.replace(day=1)
+    last_day = calendar.monthrange(max_date.year, max_date.month)[1]
+    last_of_month = max_date.replace(day=last_day)
+
+    # Collect months in range
+    months: list[tuple[int, int]] = []  # (year, month)
+    d = first_of_month
+    while d <= last_of_month:
+        months.append((d.year, d.month))
+        if d.month == 12:
+            d = d.replace(year=d.year + 1, month=1)
+        else:
+            d = d.replace(month=d.month + 1)
+
+    # Red-green diverging colormap centered at 0
+    cmap = mcolors.LinearSegmentedColormap.from_list(
+        "valence_rg",
+        ["#d94a4a", "#f5f5f5", "#3aaa5b"],
+    )
+    norm = mcolors.TwoSlopeNorm(vmin=-1, vcenter=0, vmax=1)
+
+    n_months = len(months)
+    fig, axes = plt.subplots(
+        1, n_months,
+        figsize=(max(2.4 * n_months, 6), 2.8),
+        squeeze=False,
+    )
+    axes = axes[0]
+
+    day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    for idx, (year, month) in enumerate(months):
+        ax = axes[idx]
+        num_days = calendar.monthrange(year, month)[1]
+
+        # weekday of the 1st (0=Mon)
+        first_weekday = date(year, month, 1).weekday()
+        # number of rows (weeks) needed
+        n_weeks = (first_weekday + num_days + 6) // 7
+
+        grid = np.full((7, n_weeks), np.nan)
+
+        for day in range(1, num_days + 1):
+            d = date(year, month, day)
+            wd = d.weekday()  # row
+            col = (first_weekday + day - 1) // 7
+            if d in day_means:
+                grid[wd, col] = day_means[d]
+
+        for week_col in range(n_weeks):
+            for wd in range(7):
+                day_num = week_col * 7 + wd - first_weekday + 1
+                if day_num < 1 or day_num > num_days:
+                    continue
+                val = grid[wd, week_col]
+                if np.isnan(val):
+                    color = "#e8e8e8"
+                else:
+                    color = cmap(norm(val))
+                rect = plt.Rectangle(
+                    (week_col, wd), 1, 1,
+                    facecolor=color, edgecolor="white", linewidth=1.5,
+                )
+                ax.add_patch(rect)
+
+        ax.set_xlim(0, n_weeks)
+        ax.set_ylim(0, 7)
+        ax.invert_yaxis()
+        ax.set_aspect("equal")
+        ax.set_title(f"{calendar.month_abbr[month]} {year}", fontsize=10, pad=4)
+
+        if idx == 0:
+            ax.set_yticks([i + 0.5 for i in range(7)])
+            ax.set_yticklabels(day_labels, fontsize=7)
+        else:
+            ax.set_yticks([])
+
+        ax.set_xticks([])
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+    # Shared colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=axes.tolist(), shrink=0.8, pad=0.04, aspect=30)
+    cbar.set_label("Valence", fontsize=8)
+    cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
+
+    fig.suptitle("Calendar mood heatmap", fontsize=11, y=1.02)
     fig.tight_layout()
     return _fig_to_bytes(fig)
 
