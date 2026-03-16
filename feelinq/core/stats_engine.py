@@ -1,3 +1,4 @@
+import calendar as cal
 import io
 import logging
 from collections import Counter
@@ -422,7 +423,7 @@ def _weekly_heatmap(entries: list[dict]) -> bytes:
 
 
 def _year_calendar(entries: list[dict]) -> bytes:
-    """Full-year calendar heatmap colored by daily average valence."""
+    """Last-12-months calendar heatmap colored by daily average valence."""
     # Aggregate valence by date
     day_data: dict[date, list[float]] = {}
     for e in entries:
@@ -434,41 +435,13 @@ def _year_calendar(entries: list[dict]) -> bytes:
 
     day_avg = {d: float(np.mean(vals)) for d, vals in day_data.items()}
 
-    # Pick the year with most data, default to current year
-    year = datetime.now(timezone.utc).year
-    if day_avg:
-        year_counts: dict[int, int] = {}
-        for d in day_avg:
-            year_counts[d.year] = year_counts.get(d.year, 0) + 1
-        year = max(year_counts, key=lambda y: year_counts[y])
+    # Last 12 months (oldest first)
+    now = datetime.now(timezone.utc)
+    months_list: list[tuple[int, int]] = []
+    for i in range(11, -1, -1):
+        total = now.year * 12 + (now.month - 1) - i
+        months_list.append((total // 12, total % 12 + 1))
 
-    # Build calendar matrices (6 rows × 7 cols per month)
-    empty = np.full((6, 7), np.nan)
-    day_nums = {m: np.copy(empty) for m in range(1, 13)}
-    day_vals = {m: np.copy(empty) for m in range(1, 13)}
-
-    current = date(year, 1, 1)
-    end = date(year, 12, 31)
-    row = 0
-    prev_month = 0
-
-    while current <= end:
-        month = current.month
-        col = current.weekday()
-
-        if month != prev_month:
-            row = 0
-            prev_month = month
-
-        day_nums[month][row, col] = current.day
-        if current in day_avg:
-            day_vals[month][row, col] = day_avg[current]
-
-        if col == 6:
-            row += 1
-        current += timedelta(days=1)
-
-    # Render
     month_names = [
         "January", "February", "March", "April", "May", "June",
         "July", "August", "September", "October", "November", "December",
@@ -480,11 +453,42 @@ def _year_calendar(entries: list[dict]) -> bytes:
 
     fig, axes = plt.subplots(3, 4, figsize=(14.85, 10.5))
 
-    for i, ax in enumerate(axes.flat):
-        month = i + 1
+    for idx, ax in enumerate(axes.flat):
+        yr, mo = months_list[idx]
+        _, num_days = cal.monthrange(yr, mo)
 
-        ax.imshow(day_vals[month], cmap=cmap, vmin=-1, vmax=1, aspect="auto")
-        ax.set_title(month_names[i], fontsize=11, fontweight="bold")
+        # Build calendar matrix for this month
+        empty = np.full((6, 7), np.nan)
+        day_nums = np.copy(empty)
+        day_vals = np.copy(empty)
+
+        row = 0
+        for day in range(1, num_days + 1):
+            d = date(yr, mo, day)
+            col = d.weekday()
+            day_nums[row, col] = day
+            if d in day_avg:
+                day_vals[row, col] = day_avg[d]
+            if col == 6:
+                row += 1
+
+        # Positiveness: % of days with data that had valence >= 0
+        month_vals = [day_avg[date(yr, mo, d)]
+                      for d in range(1, num_days + 1)
+                      if date(yr, mo, d) in day_avg]
+
+        ax.imshow(day_vals, cmap=cmap, vmin=-1, vmax=1, aspect="auto")
+
+        title = f"{month_names[mo - 1]} {yr}"
+        ax.set_title(title, fontsize=11, fontweight="bold")
+
+        if month_vals:
+            pos_pct = sum(1 for v in month_vals if v >= 0) / len(month_vals) * 100
+            ax.text(
+                0.5, -0.06, f"{pos_pct:.0f}% positive",
+                ha="center", va="top", transform=ax.transAxes,
+                fontsize=8, color="#555555", style="italic",
+            )
 
         ax.set_xticks(np.arange(len(days_header)))
         ax.set_xticklabels(days_header, fontsize=9, fontweight="bold", color="#555555")
@@ -502,7 +506,7 @@ def _year_calendar(entries: list[dict]) -> bytes:
 
         for w in range(6):
             for d in range(7):
-                day_num = day_nums[month][w, d]
+                day_num = day_nums[w, d]
 
                 # Non-calendar-day cell: white patch
                 if np.isnan(day_num):
@@ -530,20 +534,24 @@ def _year_calendar(entries: list[dict]) -> bytes:
                 )
                 ax.add_artist(Polygon(patch_coords, fc="w", alpha=0.7))
 
-    fig.suptitle(f"Mood Calendar {year}", fontsize=16, fontweight="bold")
+    fig.suptitle("Mood Calendar", fontsize=16, fontweight="bold")
 
-    # Horizontal colorbar
+    # Horizontal colorbar with descriptive labels
     sm = plt.cm.ScalarMappable(
         cmap=cmap, norm=plt.Normalize(vmin=-1, vmax=1),
     )
     sm.set_array([])
     cbar = fig.colorbar(
         sm, ax=axes, orientation="horizontal",
-        fraction=0.03, pad=0.04, aspect=40,
+        fraction=0.02, pad=0.07, aspect=50,
     )
-    cbar.set_label("Valence (negative \u2192 positive)", fontsize=10)
+    cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
+    cbar.set_ticklabels(
+        ["Very negative", "Negative", "Neutral", "Positive", "Very positive"],
+    )
+    cbar.ax.tick_params(labelsize=9)
 
-    plt.subplots_adjust(left=0.04, right=0.96, top=0.88, bottom=0.08, hspace=0.3)
+    plt.subplots_adjust(left=0.04, right=0.96, top=0.88, bottom=0.12, hspace=0.4)
     return _fig_to_bytes(fig)
 
 
