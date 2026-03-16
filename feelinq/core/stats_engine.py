@@ -43,8 +43,8 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
     charts.append(("Arousal over time", _arousal_over_time(entries)))
     charts.append(("Circumplex scatter", _circumplex_scatter(entries)))
     charts.append(("Quadrant distribution", _quadrant_distribution(entries)))
-    charts.append(("Emotion frequency", _emotion_frequency(entries)))
-    charts.append(("Time of day", _time_of_day(entries)))
+    # charts.append(("Emotion frequency", _emotion_frequency(entries)))
+    # charts.append(("Time of day", _time_of_day(entries)))
 
     # Year calendar uses a full year of data
     year_entries = await timescale.query_mood_entries(user_id, range_days=365)
@@ -210,22 +210,35 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
 
     fig, ax = plt.subplots(figsize=(5, 5))
 
-    # All-time 2σ ellipse (grey)
+    # All-time ellipses (light blue, stacked sigma bands)
+    color_all = "lightsteelblue"
     _confidence_ellipse(
         vals, aros, ax, n_std=2,
-        facecolor="lightgray", edgecolor="none", alpha=0.4, label="All time (2σ)",
+        facecolor=color_all, edgecolor="none", alpha=0.2,
+        label=r"All time (2$\sigma$)",
+    )
+    _confidence_ellipse(
+        vals, aros, ax, n_std=1,
+        facecolor=color_all, edgecolor="none", alpha=0.3,
     )
 
-    # Recent 2σ ellipse (orange)
+    # Recent ellipses (orange, stacked sigma bands)
     if recent_mask.sum() >= 3:
         _confidence_ellipse(
             vals[recent_mask], aros[recent_mask], ax, n_std=2,
-            facecolor="orange", edgecolor="none", alpha=0.35, label="Last 2 weeks (2σ)",
+            facecolor="orange", edgecolor="none", alpha=0.15,
+            label=r"Last 2 weeks (2$\sigma$)",
+        )
+        _confidence_ellipse(
+            vals[recent_mask], aros[recent_mask], ax, n_std=1,
+            facecolor="orange", edgecolor="none", alpha=0.25,
         )
 
-    # Scatter points (colored by recency)
-    colors = np.linspace(0.3, 1.0, len(entries))
-    ax.scatter(vals, aros, c=colors, cmap="Blues", edgecolors="black", linewidth=0.5, s=50, zorder=3)
+    # Scatter points
+    ax.scatter(
+        vals, aros, c="royalblue", s=20, alpha=0.2,
+        edgecolors="none", zorder=3,
+    )
 
     # Emotion reference labels
     for e in EMOTION_CATALOG.values():
@@ -236,16 +249,18 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
             (e.valence, e.arousal),
             fontsize=6, color="gray", alpha=0.7,
             ha="center", va="bottom",
-            textcoords="offset points", xytext=(0, 3),
+            textcoords="offset points", xytext=(0, 10),
         )
 
-    # Axes and quadrant lines
-    ax.axhline(0, color="gray", linewidth=0.5)
-    ax.axvline(0, color="gray", linewidth=0.5)
+    # Axes
     ax.set_xlim(-1.2, 1.2)
     ax.set_ylim(-1.2, 1.2)
-    ax.set_xlabel("Valence (negative → positive)")
-    ax.set_ylabel("Arousal (low → high)")
+    ax.set_xticks([-1, 0, 1])
+    ax.set_xticklabels(["Negative", "Neutral", "Positive"])
+    ax.set_yticks([-1, 0, 1])
+    ax.set_yticklabels(["Weak", "Neutral", "Strong"])
+    ax.set_xlabel("Valence", fontweight="bold")
+    ax.set_ylabel("Arousal", fontweight="bold")
     ax.set_title("Russell Circumplex")
     ax.set_aspect("equal")
     ax.legend(loc="upper left", fontsize=7, framealpha=0.8)
@@ -322,44 +337,44 @@ def _emotion_frequency(entries: list[dict]) -> bytes:
     return _fig_to_bytes(fig)
 
 
-def _time_of_day(entries: list[dict]) -> bytes:
-    """Average valence and arousal by hour of day."""
-    hour_vals: dict[int, list[float]] = {h: [] for h in range(24)}
-    hour_aros: dict[int, list[float]] = {h: [] for h in range(24)}
+# def _time_of_day(entries: list[dict]) -> bytes:
+#     """Average valence and arousal by hour of day."""
+#     hour_vals: dict[int, list[float]] = {h: [] for h in range(24)}
+#     hour_aros: dict[int, list[float]] = {h: [] for h in range(24)}
 
-    for e in entries:
-        t = e["time"]
-        if t.tzinfo is None:
-            t = t.replace(tzinfo=timezone.utc)
-        h = t.hour
-        hour_vals[h].append(e["mean_valence"])
-        hour_aros[h].append(e["mean_arousal"])
+#     for e in entries:
+#         t = e["time"]
+#         if t.tzinfo is None:
+#             t = t.replace(tzinfo=timezone.utc)
+#         h = t.hour
+#         hour_vals[h].append(e["mean_valence"])
+#         hour_aros[h].append(e["mean_arousal"])
 
-    hours = list(range(24))
-    mean_v = [np.mean(hour_vals[h]) if hour_vals[h] else np.nan for h in hours]
-    mean_a = [np.mean(hour_aros[h]) if hour_aros[h] else np.nan for h in hours]
-    count = [len(hour_vals[h]) for h in hours]
+#     hours = list(range(24))
+#     mean_v = [np.mean(hour_vals[h]) if hour_vals[h] else np.nan for h in hours]
+#     mean_a = [np.mean(hour_aros[h]) if hour_aros[h] else np.nan for h in hours]
+#     count = [len(hour_vals[h]) for h in hours]
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 4), sharex=True)
+#     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 4), sharex=True)
 
-    # Valence by hour
-    ax1.bar(hours, mean_v, color="#4a90d9", alpha=0.7, width=0.8)
-    ax1.axhline(0, color="gray", linewidth=0.5, linestyle="--")
-    ax1.set_ylim(-1.1, 1.1)
-    ax1.set_ylabel("Valence")
-    ax1.set_title("Mood by time of day")
+#     # Valence by hour
+#     ax1.bar(hours, mean_v, color="#4a90d9", alpha=0.7, width=0.8)
+#     ax1.axhline(0, color="gray", linewidth=0.5, linestyle="--")
+#     ax1.set_ylim(-1.1, 1.1)
+#     ax1.set_ylabel("Valence")
+#     ax1.set_title("Mood by time of day")
 
-    # Arousal by hour
-    ax2.bar(hours, mean_a, color="#d94a4a", alpha=0.7, width=0.8)
-    ax2.axhline(0, color="gray", linewidth=0.5, linestyle="--")
-    ax2.set_ylim(-1.1, 1.1)
-    ax2.set_ylabel("Arousal")
-    ax2.set_xlabel("Hour of day")
-    ax2.set_xticks(range(0, 24, 3))
-    ax2.set_xticklabels([f"{h:02d}" for h in range(0, 24, 3)])
+#     # Arousal by hour
+#     ax2.bar(hours, mean_a, color="#d94a4a", alpha=0.7, width=0.8)
+#     ax2.axhline(0, color="gray", linewidth=0.5, linestyle="--")
+#     ax2.set_ylim(-1.1, 1.1)
+#     ax2.set_ylabel("Arousal")
+#     ax2.set_xlabel("Hour of day")
+#     ax2.set_xticks(range(0, 24, 3))
+#     ax2.set_xticklabels([f"{h:02d}" for h in range(0, 24, 3)])
 
-    fig.tight_layout()
-    return _fig_to_bytes(fig)
+#     fig.tight_layout()
+#     return _fig_to_bytes(fig)
 
 
 
