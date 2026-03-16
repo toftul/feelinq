@@ -209,20 +209,33 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
         for e in entries
     ])
 
-    fig, ax = plt.subplots(figsize=(5, 5))
+    fig, ax = plt.subplots(figsize=(6, 6))
 
-    # All-time ellipse
+    # Colored quadrant backgrounds
+    quad_bounds = {
+        "lp_ha": (-1.2, 0, 0, 1.2),
+        "hp_ha": (0, 1.2, 0, 1.2),
+        "lp_la": (-1.2, 0, -1.2, 0),
+        "hp_la": (0, 1.2, -1.2, 0),
+    }
+    for q, (x0, x1, y0, y1) in quad_bounds.items():
+        ax.fill_between(
+            [x0, x1], y0, y1,
+            color=_QUADRANT_COLORS[q], alpha=0.10, zorder=0,
+        )
+
+    # All-time contour (black)
     _confidence_ellipse(
         vals, aros, ax, n_std=2,
-        facecolor="lightgray", edgecolor="none", alpha=0.3,
+        facecolor="none", edgecolor="black", linewidth=1.5,
         label=r"All time (2$\sigma$)",
     )
 
-    # Recent ellipses (orange, stacked sigma bands)
+    # Recent contour (red)
     if recent_mask.sum() >= 3:
         _confidence_ellipse(
             vals[recent_mask], aros[recent_mask], ax, n_std=2,
-            facecolor="orange", edgecolor="none", alpha=0.4,
+            facecolor="none", edgecolor="red", linewidth=1.5,
             label=r"Last 2 weeks (2$\sigma$)",
         )
 
@@ -232,29 +245,53 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
         edgecolors="none", zorder=3,
     )
 
-    # Emotion reference labels
+    # Emotion reference dots and labels (color-coded by quadrant)
     for e in EMOTION_CATALOG.values():
         if e.key == "neutral":
+            ax.plot(e.valence, e.arousal, "o", color="gray", markersize=6, zorder=2)
+            ax.annotate(
+                e.key.capitalize(), (e.valence, e.arousal),
+                fontsize=8, color="gray",
+                ha="center", va="bottom",
+                textcoords="offset points", xytext=(0, 6),
+            )
             continue
+        q = _get_quadrant_key(e.valence, e.arousal)
+        ax.plot(e.valence, e.arousal, "o", color=_QUADRANT_COLORS[q], markersize=7, zorder=2)
         ax.annotate(
-            e.key.capitalize(),
-            (e.valence, e.arousal),
-            fontsize=6, color="gray", alpha=0.7,
+            e.key.capitalize(), (e.valence, e.arousal),
+            fontsize=8, fontweight="medium", color=_QUADRANT_COLORS[q],
             ha="center", va="bottom",
-            textcoords="offset points", xytext=(0, 10),
+            textcoords="offset points", xytext=(0, 6),
         )
 
-    # Axes
-    ax.set_xlim(-1.2, 1.2)
-    ax.set_ylim(-1.2, 1.2)
-    ax.set_xticks([-1, 0, 1])
-    ax.set_xticklabels(["Negative", "Neutral", "Positive"])
-    ax.set_yticks([-1, 0, 1])
-    ax.set_yticklabels(["Weak", "Neutral", "Strong"])
-    ax.set_xlabel("Valence", fontweight="bold")
-    ax.set_ylabel("Arousal", fontweight="bold")
-    ax.set_title("Russell Circumplex")
+    # Axis arrows through origin
+    arrow_kw = dict(
+        arrowstyle="->,head_width=0.3,head_length=0.2",
+        color="black", lw=1.2,
+    )
+    ax.annotate("", xy=(1.25, 0), xytext=(-1.25, 0),
+                arrowprops=arrow_kw, annotation_clip=False)
+    ax.annotate("", xy=(0, 1.25), xytext=(0, -1.25),
+                arrowprops=arrow_kw, annotation_clip=False)
+
+    # Axis labels at arrow tips
+    ax.text(1.28, -0.06, "Pleasant", fontsize=10, ha="left", va="top")
+    ax.text(-1.28, -0.06, "Unpleasant", fontsize=10, ha="right", va="top")
+    ax.text(0.04, 1.28, "High energy", fontsize=10, ha="left", va="bottom")
+    ax.text(0.04, -1.28, "Low energy", fontsize=10, ha="left", va="top")
+
+    ax.set_xlim(-1.45, 1.45)
+    ax.set_ylim(-1.45, 1.45)
     ax.set_aspect("equal")
+
+    # Remove default axes (arrows replace them)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    ax.set_title("Russell Circumplex", fontsize=12, pad=16)
     ax.legend(loc="upper left", fontsize=7, framealpha=0.8)
     fig.tight_layout()
     return _fig_to_bytes(fig)
