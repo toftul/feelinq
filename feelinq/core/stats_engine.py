@@ -241,14 +241,14 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
 
     # Scatter points
     ax.scatter(
-        vals, aros, c="k", s=20, alpha=0.2,
+        vals, aros, c="k", s=40, alpha=0.2,
         edgecolors="none", zorder=3,
     )
 
     # Emotion reference dots and labels (color-coded by quadrant)
     for e in EMOTION_CATALOG.values():
         if e.key == "neutral":
-            ax.plot(e.valence, e.arousal, "o", color="gray", markersize=6, zorder=2)
+            #ax.plot(e.valence, e.arousal, "o", color="gray", markersize=6, zorder=2)
             ax.annotate(
                 e.key.capitalize(), (e.valence, e.arousal),
                 fontsize=8, color="gray",
@@ -257,7 +257,7 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
             )
             continue
         q = _get_quadrant_key(e.valence, e.arousal)
-        ax.plot(e.valence, e.arousal, "o", color=_QUADRANT_COLORS[q], markersize=7, zorder=2)
+        #ax.plot(e.valence, e.arousal, "o", color=_QUADRANT_COLORS[q], markersize=7, zorder=2)
         ax.annotate(
             e.key.capitalize(), (e.valence, e.arousal),
             fontsize=8, fontweight="medium", color=_QUADRANT_COLORS[q],
@@ -292,7 +292,13 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
     ax.set_yticks([])
 
     ax.set_title("Russell Circumplex", fontsize=12, pad=16)
-    ax.legend(loc="upper left", fontsize=7, framealpha=0.8)
+    ax.legend(
+        loc="upper left", 
+        fontsize=8, 
+        fancybox=False,
+        edgecolor=None,
+        framealpha=0.8
+    )
     fig.tight_layout()
     return _fig_to_bytes(fig)
 
