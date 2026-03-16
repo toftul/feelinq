@@ -238,12 +238,16 @@ def _circumplex_scatter(entries: list[dict], recent_days: int = 14) -> bytes:
                    else r"Last 2 weeks (2$\sigma$)"),
         )
 
-    # Scatter points
-    if recent_mask.sum() >= 3:
+    # Scatter points (colored by quadrant)
+    if recent_mask.sum() >= 1:
+        rv = vals[recent_mask]
+        ra = aros[recent_mask]
+        dot_colors = [
+            _QUADRANT_COLORS[_get_quadrant_key(v, a)] for v, a in zip(rv, ra)
+        ]
         ax.scatter(
-            #vals, aros, 
-            vals[recent_mask], aros[recent_mask],
-            c="k", s=40, alpha=0.2,
+            rv, ra,
+            c=dot_colors, s=40, alpha=0.2,
             edgecolors="none", zorder=3,
         )
 
