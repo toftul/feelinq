@@ -1,13 +1,13 @@
 import io
 import logging
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.transforms as transforms
-from matplotlib.patches import Ellipse
+from matplotlib.patches import Ellipse, Polygon
 import numpy as np
 
 from feelinq.core.emotions import EMOTION_CATALOG
@@ -45,6 +45,10 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
     charts.append(("Emotion frequency", _emotion_frequency(entries)))
     charts.append(("Time of day", _time_of_day(entries)))
     charts.append(("Weekly heatmap", _weekly_heatmap(entries)))
+
+    # Year calendar uses a full year of data
+    year_entries = await timescale.query_mood_entries(user_id, range_days=365)
+    charts.append(("Year calendar", _year_calendar(year_entries)))
     return charts
 
 
@@ -414,6 +418,132 @@ def _weekly_heatmap(entries: list[dict]) -> bytes:
 
     fig.suptitle("Weekly mood heatmap (last 8 weeks)", fontsize=11, y=1.01)
     fig.tight_layout()
+    return _fig_to_bytes(fig)
+
+
+def _year_calendar(entries: list[dict]) -> bytes:
+    """Full-year calendar heatmap colored by daily average valence."""
+    # Aggregate valence by date
+    day_data: dict[date, list[float]] = {}
+    for e in entries:
+        t = e["time"]
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+        d = t.date()
+        day_data.setdefault(d, []).append(e["mean_valence"])
+
+    day_avg = {d: float(np.mean(vals)) for d, vals in day_data.items()}
+
+    # Pick the year with most data, default to current year
+    year = datetime.now(timezone.utc).year
+    if day_avg:
+        year_counts: dict[int, int] = {}
+        for d in day_avg:
+            year_counts[d.year] = year_counts.get(d.year, 0) + 1
+        year = max(year_counts, key=lambda y: year_counts[y])
+
+    # Build calendar matrices (6 rows × 7 cols per month)
+    empty = np.full((6, 7), np.nan)
+    day_nums = {m: np.copy(empty) for m in range(1, 13)}
+    day_vals = {m: np.copy(empty) for m in range(1, 13)}
+
+    current = date(year, 1, 1)
+    end = date(year, 12, 31)
+    row = 0
+    prev_month = 0
+
+    while current <= end:
+        month = current.month
+        col = current.weekday()
+
+        if month != prev_month:
+            row = 0
+            prev_month = month
+
+        day_nums[month][row, col] = current.day
+        if current in day_avg:
+            day_vals[month][row, col] = day_avg[current]
+
+        if col == 6:
+            row += 1
+        current += timedelta(days=1)
+
+    # Render
+    month_names = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    ]
+    days_header = ["M", "T", "W", "T", "F", "S", "S"]
+
+    cmap = plt.cm.RdYlGn.copy()  # type: ignore[attr-defined]
+    cmap.set_bad(color="#E8E8E8")
+
+    fig, axes = plt.subplots(3, 4, figsize=(14.85, 10.5))
+
+    for i, ax in enumerate(axes.flat):
+        month = i + 1
+
+        ax.imshow(day_vals[month], cmap=cmap, vmin=-1, vmax=1, aspect="auto")
+        ax.set_title(month_names[i], fontsize=11, fontweight="bold")
+
+        ax.set_xticks(np.arange(len(days_header)))
+        ax.set_xticklabels(days_header, fontsize=9, fontweight="bold", color="#555555")
+        ax.set_yticklabels([])
+
+        ax.tick_params(axis="both", which="both", length=0)
+        ax.xaxis.tick_top()
+
+        ax.set_xticks(np.arange(-0.5, 6, 1), minor=True)
+        ax.set_yticks(np.arange(-0.5, 5, 1), minor=True)
+        ax.grid(which="minor", color="w", linestyle="-", linewidth=2.1)
+
+        for edge in ["left", "right", "bottom", "top"]:
+            ax.spines[edge].set_color("#FFFFFF")
+
+        for w in range(6):
+            for d in range(7):
+                day_num = day_nums[month][w, d]
+
+                # Non-calendar-day cell: white patch
+                if np.isnan(day_num):
+                    patch_coords = (
+                        (d - 0.5, w - 0.5),
+                        (d - 0.5, w + 0.5),
+                        (d + 0.5, w + 0.5),
+                        (d + 0.5, w - 0.5),
+                    )
+                    ax.add_artist(Polygon(patch_coords, fc="#FFFFFF"))
+                    continue
+
+                # Day number in top-right corner
+                ax.text(
+                    d + 0.45, w - 0.31, f"{day_num:0.0f}",
+                    ha="right", va="center",
+                    fontsize=6, color="#003333", alpha=0.8,
+                )
+
+                # White triangle behind day number for readability
+                patch_coords = (
+                    (d - 0.1, w - 0.5),
+                    (d + 0.5, w - 0.5),
+                    (d + 0.5, w + 0.1),
+                )
+                ax.add_artist(Polygon(patch_coords, fc="w", alpha=0.7))
+
+    fig.suptitle(f"Mood Calendar {year}", fontsize=16, fontweight="bold")
+
+    # Horizontal colorbar
+    sm = plt.cm.ScalarMappable(
+        cmap=cmap, norm=plt.Normalize(vmin=-1, vmax=1),
+    )
+    sm.set_array([])
+    cbar = fig.colorbar(
+        sm, ax=axes, orientation="horizontal",
+        fraction=0.03, pad=0.04, aspect=40,
+    )
+    cbar.set_label("Valence (negative \u2192 positive)", fontsize=10)
+
+    plt.subplots_adjust(left=0.04, right=0.96, top=0.88, bottom=0.08, hspace=0.3)
     return _fig_to_bytes(fig)
 
 
