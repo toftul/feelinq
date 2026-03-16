@@ -1,16 +1,11 @@
 import io
 import logging
-from collections import Counter, defaultdict
-from datetime import date, datetime, timedelta, timezone
+from collections import Counter
+from datetime import datetime, timedelta, timezone
 
 import matplotlib
 matplotlib.use("Agg")
-# july 0.1.3 references a removed matplotlib attribute; shim it so the import works.
-if not hasattr(matplotlib.cbook, "MatplotlibDeprecationWarning"):
-    matplotlib.cbook.MatplotlibDeprecationWarning = DeprecationWarning  # type: ignore[attr-defined]
-import july
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
 import matplotlib.transforms as transforms
 from matplotlib.patches import Ellipse
 import numpy as np
@@ -50,7 +45,6 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
     charts.append(("Emotion frequency", _emotion_frequency(entries)))
     charts.append(("Time of day", _time_of_day(entries)))
     charts.append(("Weekly heatmap", _weekly_heatmap(entries)))
-    charts.append(("Calendar heatmap", _calendar_heatmap(entries)))
     return charts
 
 
@@ -420,59 +414,6 @@ def _weekly_heatmap(entries: list[dict]) -> bytes:
 
     fig.suptitle("Weekly mood heatmap (last 8 weeks)", fontsize=11, y=1.01)
     fig.tight_layout()
-    return _fig_to_bytes(fig)
-
-
-def _calendar_heatmap(entries: list[dict]) -> bytes:
-    """Calendar heatmap colored by daily mean valence using july."""
-    day_vals: dict[date, list[float]] = defaultdict(list)
-    for e in entries:
-        t = e["time"]
-        if t.tzinfo is None:
-            t = t.replace(tzinfo=timezone.utc)
-        day_vals[t.date()].append(e["mean_valence"])
-
-    if not day_vals:
-        fig, ax = plt.subplots(figsize=(6, 2))
-        ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
-        fig.tight_layout()
-        return _fig_to_bytes(fig)
-
-    dates_sorted = sorted(day_vals.keys())
-    data = [float(np.mean(day_vals[d])) for d in dates_sorted]
-
-    cmap = mcolors.LinearSegmentedColormap.from_list(
-        "valence_rg",
-        ["#d94a4a", "#f5f5f5", "#3aaa5b"],
-    )
-
-    # july.calendar_plot mutates global rcParams; save and restore them.
-    saved_rc = matplotlib.rcParams.copy()
-    try:
-        axes = july.calendar_plot(
-            dates_sorted,
-            data,
-            cmap=cmap,
-            title=False,
-            month_label=True,
-            ncols=4,
-        )
-    finally:
-        matplotlib.rcParams.update(saved_rc)
-
-    fig = axes.flat[0].figure
-    fig.suptitle("Calendar mood heatmap", fontsize=11)
-
-    # Add colorbar
-    sm = plt.cm.ScalarMappable(
-        cmap=cmap,
-        norm=mcolors.TwoSlopeNorm(vmin=-1, vcenter=0, vmax=1),
-    )
-    sm.set_array([])
-    cbar = fig.colorbar(sm, ax=list(axes.flat), shrink=0.3, pad=0.02, aspect=20)
-    cbar.set_label("Valence", fontsize=8)
-    cbar.set_ticks([-1, -0.5, 0, 0.5, 1])
-
     return _fig_to_bytes(fig)
 
 
