@@ -239,10 +239,13 @@ def _circumplex_scatter(entries: list[dict], recent_days: int = 14) -> bytes:
         )
 
     # Scatter points
-    ax.scatter(
-        vals, aros, c="k", s=40, alpha=0.2,
-        edgecolors="none", zorder=3,
-    )
+    if recent_mask.sum() >= 3:
+        ax.scatter(
+            #vals, aros, 
+            vals[recent_mask], aros[recent_mask],
+            c="k", s=40, alpha=0.2,
+            edgecolors="none", zorder=3,
+        )
 
     # Emotion reference dots and labels (color-coded by quadrant)
     for e in EMOTION_CATALOG.values():
