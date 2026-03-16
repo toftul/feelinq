@@ -227,7 +227,7 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
     # All-time contour (black)
     _confidence_ellipse(
         vals, aros, ax, n_std=2,
-        facecolor="lightgray", edgecolor="none", linewidth=1.5, alpha=0.2,
+        facecolor="lightgray", edgecolor="lightgray", linewidth=1.5, linestyle='--', alpha=0.4,
         label=r"All time (2$\sigma$)",
     )
 
