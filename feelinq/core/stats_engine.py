@@ -45,7 +45,6 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
     charts.append(("Quadrant distribution", _quadrant_distribution(entries)))
     charts.append(("Emotion frequency", _emotion_frequency(entries)))
     charts.append(("Time of day", _time_of_day(entries)))
-    charts.append(("Weekly heatmap", _weekly_heatmap(entries)))
 
     # Year calendar uses a full year of data
     year_entries = await timescale.query_mood_entries(user_id, range_days=365)
@@ -363,64 +362,6 @@ def _time_of_day(entries: list[dict]) -> bytes:
     return _fig_to_bytes(fig)
 
 
-def _weekly_heatmap(entries: list[dict]) -> bytes:
-    now = datetime.now(timezone.utc)
-    weeks = 8
-    valence_grid = np.full((weeks, 7), np.nan)
-    arousal_grid = np.full((weeks, 7), np.nan)
-    counts = np.zeros((weeks, 7), dtype=int)
-
-    for e in entries:
-        t = e["time"]
-        if t.tzinfo is None:
-            t = t.replace(tzinfo=timezone.utc)
-        days_ago = (now - t).days
-        week_idx = weeks - 1 - (days_ago // 7)
-        day_idx = t.weekday()
-        if 0 <= week_idx < weeks:
-            if np.isnan(valence_grid[week_idx, day_idx]):
-                valence_grid[week_idx, day_idx] = 0
-                arousal_grid[week_idx, day_idx] = 0
-            valence_grid[week_idx, day_idx] += e["mean_valence"]
-            arousal_grid[week_idx, day_idx] += e["mean_arousal"]
-            counts[week_idx, day_idx] += 1
-
-    with np.errstate(invalid="ignore"):
-        mask = counts > 0
-        valence_grid[mask] = valence_grid[mask] / counts[mask]
-        arousal_grid[mask] = arousal_grid[mask] / counts[mask]
-
-    # Week labels: Monday date of each row
-    today_monday = now.date() - timedelta(days=now.weekday())
-    week_labels = [
-        (today_monday - timedelta(weeks=weeks - 1 - i)).strftime("%-d %b")
-        for i in range(weeks)
-    ]
-    day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-    cmap_valence = plt.cm.RdYlGn   # type: ignore[attr-defined]
-    cmap_valence.set_bad(color="#e8e8e8")
-    cmap_arousal = plt.cm.PiYG_r  # type: ignore[attr-defined]
-    cmap_arousal.set_bad(color="#e8e8e8")
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
-
-    for ax, grid, cmap, title, label in (
-        (ax1, valence_grid, cmap_valence, "Valence\n(negative → positive)", "Valence"),
-        (ax2, arousal_grid, cmap_arousal, "Arousal\n(calm → energised)", "Arousal"),
-    ):
-        im = ax.imshow(grid, cmap=cmap, vmin=-1, vmax=1, aspect="auto")
-        ax.set_xticks(range(7))
-        ax.set_xticklabels(day_labels)
-        ax.set_yticks(range(weeks))
-        ax.set_yticklabels(week_labels, fontsize=8)
-        ax.set_title(title)
-        fig.colorbar(im, ax=ax, shrink=0.8, label=label)
-
-    fig.suptitle("Weekly mood heatmap (last 8 weeks)", fontsize=11, y=1.01)
-    fig.tight_layout()
-    return _fig_to_bytes(fig)
-
 
 def _year_calendar(entries: list[dict]) -> bytes:
     """Last-12-months calendar heatmap colored by daily average valence."""
@@ -485,7 +426,7 @@ def _year_calendar(entries: list[dict]) -> bytes:
         if month_vals:
             pos_pct = sum(1 for v in month_vals if v >= 0) / len(month_vals) * 100
             ax.text(
-                0.5, -0.05, f"{pos_pct:.0f}% positive",
+                0.5, +0.05, f"{pos_pct:.0f}% positive",
                 ha="center", va="top", transform=ax.transAxes,
                 fontsize=8, color="#555555", style="italic",
             )
@@ -538,7 +479,7 @@ def _year_calendar(entries: list[dict]) -> bytes:
                  x=0.04, ha="left")
 
     # Colorbar: 25% of plot width, top-right next to title
-    cbar_ax = fig.add_axes([0.71, 0.95, 0.25, 0.015])  # [left, bottom, width, height]
+    cbar_ax = fig.add_axes([0.71, 0.97, 0.25, 0.015])  # [left, bottom, width, height]
     sm = plt.cm.ScalarMappable(
         cmap=cmap, norm=plt.Normalize(vmin=-1, vmax=1),
     )
