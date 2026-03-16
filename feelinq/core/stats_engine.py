@@ -485,7 +485,7 @@ def _year_calendar(entries: list[dict]) -> bytes:
         if month_vals:
             pos_pct = sum(1 for v in month_vals if v >= 0) / len(month_vals) * 100
             ax.text(
-                0.5, -0.00, f"{pos_pct:.0f}% positive",
+                0.5, -0.05, f"{pos_pct:.0f}% positive",
                 ha="center", va="top", transform=ax.transAxes,
                 fontsize=8, color="#555555", style="italic",
             )
@@ -538,7 +538,7 @@ def _year_calendar(entries: list[dict]) -> bytes:
                  x=0.04, ha="left")
 
     # Colorbar: 25% of plot width, top-right next to title
-    cbar_ax = fig.add_axes([0.71, 0.91, 0.25, 0.015])  # [left, bottom, width, height]
+    cbar_ax = fig.add_axes([0.71, 0.95, 0.25, 0.015])  # [left, bottom, width, height]
     sm = plt.cm.ScalarMappable(
         cmap=cmap, norm=plt.Normalize(vmin=-1, vmax=1),
     )
