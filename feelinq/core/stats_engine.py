@@ -39,10 +39,10 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
         return None
 
     charts: list[tuple[str, bytes]] = []
-    charts.append(("Valence over time", _valence_over_time(entries)))
-    charts.append(("Arousal over time", _arousal_over_time(entries)))
+    # charts.append(("Valence over time", _valence_over_time(entries)))
+    # charts.append(("Arousal over time", _arousal_over_time(entries)))
     charts.append(("Circumplex scatter", _circumplex_scatter(entries)))
-    charts.append(("Quadrant distribution", _quadrant_distribution(entries)))
+    # charts.append(("Quadrant distribution", _quadrant_distribution(entries)))
     # charts.append(("Emotion frequency", _emotion_frequency(entries)))
     # charts.append(("Time of day", _time_of_day(entries)))
 
@@ -214,7 +214,7 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
     # All-time ellipse
     _confidence_ellipse(
         vals, aros, ax, n_std=2,
-        facecolor="lightgray", edgecolor="none", alpha=0.2,
+        facecolor="lightgray", edgecolor="none", alpha=0.3,
         label=r"All time (2$\sigma$)",
     )
 
@@ -222,7 +222,7 @@ def _circumplex_scatter(entries: list[dict]) -> bytes:
     if recent_mask.sum() >= 3:
         _confidence_ellipse(
             vals[recent_mask], aros[recent_mask], ax, n_std=2,
-            facecolor="orange", edgecolor="none", alpha=0.15,
+            facecolor="orange", edgecolor="none", alpha=0.4,
             label=r"Last 2 weeks (2$\sigma$)",
         )
 
