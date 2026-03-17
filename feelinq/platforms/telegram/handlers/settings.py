@@ -458,4 +458,5 @@ def get_conversation_handler() -> ConversationHandler:
         },
         fallbacks=[CommandHandler("settings", settings_command)],
         per_message=False,
+        conversation_timeout=2 * 3600,  # 2 hours
     )

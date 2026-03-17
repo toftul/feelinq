@@ -13,7 +13,7 @@ from telegram.ext import (
 from feelinq.core.emotions import quadrant_diagram
 from feelinq.core.entry_handler import save_entry
 from feelinq.core.i18n import t
-from feelinq.core import stats_engine
+from feelinq.core import scheduler, stats_engine
 from feelinq.db import postgres
 from feelinq.platforms.telegram import keyboards
 
@@ -153,6 +153,24 @@ async def text_during_picker(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return EMOTION_SELECT
 
 
+async def _timeout(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Clean up session state and reschedule so reminders keep coming."""
+    if context.user_data:
+        context.user_data.pop(_SESSION_KEY, None)
+        context.user_data.pop(_SELECTED_KEY, None)
+        context.user_data.pop(_MSG_ID_KEY, None)
+
+    # Reschedule next reminder — the one-shot job was consumed when the picker was sent
+    if update.effective_chat:
+        platform_id = str(update.effective_chat.id)
+        user = await postgres.get_user_by_platform("telegram", platform_id)
+        if user and user["reminders_toggle"]:
+            fire_at = scheduler.compute_fire_time(user["due_min_h"], user["due_max_h"])
+            scheduler.schedule_reminder(user["user_id"], "telegram", fire_at)
+
+    return ConversationHandler.END
+
+
 def get_conversation_handler() -> ConversationHandler:
     return ConversationHandler(
         entry_points=[
@@ -162,6 +180,9 @@ def get_conversation_handler() -> ConversationHandler:
             EMOTION_SELECT: [
                 CallbackQueryHandler(emotion_toggled, pattern=r"^emo:"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, text_during_picker),
+            ],
+            ConversationHandler.TIMEOUT: [
+                MessageHandler(filters.ALL, _timeout),
             ],
         },
         fallbacks=[
