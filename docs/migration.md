@@ -41,7 +41,7 @@ mapping. Run the script inside a temporary container on the same network:
 ```bash
 podman run --rm \
   --network systemd-feelinq \
-  -v /home/ivan/feelinq/migrate_from_influx.py:/migrate.py:ro \
+  -v ./scripts/migrate_from_influx.py:/migrate.py:ro \
   python:3.12-slim \
   bash -c "pip install -q influxdb-client asyncpg && \
            python /migrate.py \
@@ -55,6 +55,6 @@ podman run --rm \
 - If the user does not yet exist in `user_settings`, a minimal row is created automatically.
 - The old bot stored emotion names in title case ("Excited, Calm"). The script lowercases them
   to match the new catalog keys.
-- The old bot allowed selecting all 20 emotions. The new bot enforces a cap of 12. If the
+- The old bot allowed selecting all 20 emotions. The new bot enforces a cap of 15. If the
   migrated selection exceeds that, the user will be prompted to pick a new set next time they
   open the emotion picker.
