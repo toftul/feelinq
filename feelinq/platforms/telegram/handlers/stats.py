@@ -21,7 +21,7 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     lang = user["language"]
-    charts = await stats_engine.generate_all(user["user_id"])
+    charts = await stats_engine.generate_all(user["user_id"], user_tz=user.get("timezone") or "UTC")
 
     if charts is None:
         await update.message.reply_text(t(lang, "stats.not_enough_data", min=stats_engine.MIN_ENTRIES), parse_mode="HTML")

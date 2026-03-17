@@ -18,7 +18,8 @@ async def ensure_schema() -> None:
                 platform_id  TEXT             NOT NULL,
                 mean_valence DOUBLE PRECISION NOT NULL,
                 mean_arousal DOUBLE PRECISION NOT NULL,
-                emotions     TEXT             NOT NULL
+                emotions     TEXT             NOT NULL,
+                timezone     TEXT
             );
         """)
         await conn.execute(
@@ -39,14 +40,16 @@ async def write_mood_entry(
     mean_arousal: float,
     emotions: list[str],
     timestamp: datetime | None = None,
+    entry_timezone: str | None = None,
 ) -> None:
     pool = _get_pool()
     ts = timestamp or datetime.now(timezone.utc)
     await pool.execute(
         "INSERT INTO mood_entry (time, user_id, platform, platform_id, "
-        "mean_valence, mean_arousal, emotions) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "mean_valence, mean_arousal, emotions, timezone) "
+        "VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
         ts, user_id, platform, platform_id,
-        mean_valence, mean_arousal, ",".join(emotions),
+        mean_valence, mean_arousal, ",".join(emotions), entry_timezone,
     )
     log.debug("Wrote mood entry for user %s", user_id)
 
@@ -58,7 +61,7 @@ async def query_mood_entries(
     pool = _get_pool()
     if range_days is None:
         rows = await pool.fetch(
-            "SELECT time, mean_valence, mean_arousal, emotions "
+            "SELECT time, mean_valence, mean_arousal, emotions, timezone "
             "FROM mood_entry "
             "WHERE user_id = $1 "
             "ORDER BY time",
@@ -66,7 +69,7 @@ async def query_mood_entries(
         )
     else:
         rows = await pool.fetch(
-            "SELECT time, mean_valence, mean_arousal, emotions "
+            "SELECT time, mean_valence, mean_arousal, emotions, timezone "
             "FROM mood_entry "
             "WHERE user_id = $1 AND time >= now() - make_interval(days => $2) "
             "ORDER BY time",

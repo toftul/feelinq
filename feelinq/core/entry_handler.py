@@ -13,6 +13,7 @@ async def save_entry(
     platform: str,
     platform_id: str,
     emotion_keys: list[str],
+    timezone_str: str | None = None,
 ) -> tuple[float, float]:
     mean_v, mean_a = mean_valence_arousal(emotion_keys)
     now = datetime.now(timezone.utc)
@@ -25,6 +26,7 @@ async def save_entry(
         mean_arousal=mean_a,
         emotions=emotion_keys,
         timestamp=now,
+        entry_timezone=timezone_str,
     )
 
     user = await postgres.get_user(user_id)

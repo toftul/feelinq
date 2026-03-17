@@ -3,6 +3,7 @@ import io
 import logging
 from collections import Counter
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import matplotlib
 matplotlib.use("Agg")
@@ -33,7 +34,7 @@ _QUADRANT_LABELS = {
 }
 
 
-async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
+async def generate_all(user_id: str, user_tz: str = "UTC") -> list[tuple[str, bytes]] | None:
     all_entries = await timescale.query_mood_entries(user_id, range_days=None)
     if len(all_entries) < MIN_ENTRIES:
         return None
@@ -46,12 +47,12 @@ async def generate_all(user_id: str) -> list[tuple[str, bytes]] | None:
     # charts.append(("Emotion frequency", _emotion_frequency(all_entries)))
     # charts.append(("Time of day", _time_of_day(all_entries)))
 
-    charts.append(("Mood calendar", _year_calendar_valence(all_entries)))
-    charts.append(("Energy calendar", _year_calendar_arousal(all_entries)))
+    charts.append(("Mood calendar", _year_calendar_valence(all_entries, user_tz=user_tz)))
+    charts.append(("Energy calendar", _year_calendar_arousal(all_entries, user_tz=user_tz)))
     return charts
 
 
-async def generate_weekly(user_id: str) -> tuple[str, bytes] | None:
+async def generate_weekly(user_id: str, user_tz: str = "UTC") -> tuple[str, bytes] | None:
     all_entries = await timescale.query_mood_entries(user_id, range_days=None)
     if not all_entries:
         return None
@@ -419,7 +420,7 @@ def _emotion_frequency(entries: list[dict]) -> bytes:
 
 
 
-def _year_calendar_valence(entries: list[dict]) -> bytes:
+def _year_calendar_valence(entries: list[dict], user_tz: str = "UTC") -> bytes:
     return _year_calendar_generic(
         entries,
         field="mean_valence",
@@ -427,10 +428,11 @@ def _year_calendar_valence(entries: list[dict]) -> bytes:
         title="Mood Calendar",
         cbar_labels=["Very negative", "Negative", "Neutral", "Positive", "Very positive"],
         summary_label="positive",
+        user_tz=user_tz,
     )
 
 
-def _year_calendar_arousal(entries: list[dict]) -> bytes:
+def _year_calendar_arousal(entries: list[dict], user_tz: str = "UTC") -> bytes:
     return _year_calendar_generic(
         entries,
         field="mean_arousal",
@@ -439,6 +441,7 @@ def _year_calendar_arousal(entries: list[dict]) -> bytes:
         title="Energy Calendar",
         cbar_labels=["Very low energy", "Low energy", "Neutral", "Energised", "Very energised"],
         summary_label="high energy",
+        user_tz=user_tz,
     )
 
 
@@ -450,21 +453,24 @@ def _year_calendar_generic(
     title: str,
     cbar_labels: list[str],
     summary_label: str,
+    user_tz: str = "UTC",
 ) -> bytes:
     """Last-12-months calendar heatmap for a given numeric field."""
-    # Aggregate field by date
+    # Aggregate field by date (use per-entry tz if available, else user tz)
     day_data: dict[date, list[float]] = {}
     for e in entries:
         t = e["time"]
         if t.tzinfo is None:
             t = t.replace(tzinfo=timezone.utc)
-        d = t.date()
+        entry_tz_str = e.get("timezone")
+        tz = ZoneInfo(entry_tz_str) if entry_tz_str else ZoneInfo(user_tz)
+        d = t.astimezone(tz).date()
         day_data.setdefault(d, []).append(e[field])
 
     day_avg = {d: float(np.mean(vals)) for d, vals in day_data.items()}
 
     # Last 12 months (oldest first)
-    now = datetime.now(timezone.utc)
+    now = datetime.now(ZoneInfo(user_tz))
     months_list: list[tuple[int, int]] = []
     for i in range(11, -1, -1):
         total = now.year * 12 + (now.month - 1) - i

@@ -72,7 +72,7 @@ async def send_weekly_summary(user_id: str) -> None:
 
     platform_id = int(user["platform_id"])
 
-    result = await stats_engine.generate_weekly(user_id)
+    result = await stats_engine.generate_weekly(user_id, user_tz=user.get("timezone") or "UTC")
     if not result:
         return
 
@@ -114,6 +114,7 @@ async def emotion_toggled(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             platform="telegram",
             platform_id=platform_id,
             emotion_keys=emotion_keys,
+            timezone_str=user.get("timezone"),
         )
 
         diagram = quadrant_diagram(mean_v, mean_a)

@@ -190,6 +190,7 @@ async def _finish_onboarding(update: Update, context: ContextTypes.DEFAULT_TYPE)
     fire_at = scheduler.compute_fire_time(due_min, due_max)
     await postgres.update_user(user_id, next_reminder_at=fire_at)
     scheduler.schedule_reminder(user_id, "telegram", fire_at)
+    scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz=tz)
 
     text = t(lang, "onboarding.done", min=due_min, max=due_max)
     if update.callback_query:

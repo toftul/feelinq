@@ -2,6 +2,7 @@ import logging
 import random
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Awaitable
+from zoneinfo import ZoneInfo
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -110,6 +111,7 @@ async def schedule_all_users() -> None:
     for user in weekly_users:
         schedule_weekly_summary(
             user["user_id"], user["platform"], user["weekly_summary_day"],
+            tz=user.get("timezone") or "UTC",
         )
         weekly_count += 1
     log.info("Scheduled weekly summaries for %d users", weekly_count)
@@ -120,6 +122,7 @@ def schedule_weekly_summary(
     platform: str,
     day_of_week: int,
     hour: int = 10,
+    tz: str = "UTC",
 ) -> None:
     scheduler = get_scheduler()
     job_id = f"weekly:{user_id}"
@@ -129,12 +132,13 @@ def schedule_weekly_summary(
         "cron",
         day_of_week=days[day_of_week],
         hour=hour,
+        timezone=ZoneInfo(tz),
         args=[user_id, platform],
         id=job_id,
         replace_existing=True,
     )
-    log.debug("Scheduled weekly summary for user %s on %s at %d:00",
-              user_id, days[day_of_week], hour)
+    log.debug("Scheduled weekly summary for user %s on %s at %d:00 (%s)",
+              user_id, days[day_of_week], hour, tz)
 
 
 def cancel_weekly(user_id: str) -> None:

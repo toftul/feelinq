@@ -186,8 +186,8 @@ async def migrate(telegram_id: str, dry_run: bool, postgres_dsn: str) -> None:
                 ts = ts.replace(tzinfo=timezone.utc)
             await conn.execute(
                 """INSERT INTO mood_entry
-                       (time, user_id, platform, platform_id, mean_valence, mean_arousal, emotions)
-                   VALUES ($1, $2, 'telegram', $3, $4, $5, $6)
+                       (time, user_id, platform, platform_id, mean_valence, mean_arousal, emotions, timezone)
+                   VALUES ($1, $2, 'telegram', $3, $4, $5, $6, NULL)
                    ON CONFLICT DO NOTHING""",
                 ts, user_id, telegram_id,
                 e["mean_valence"], e["mean_arousal"],

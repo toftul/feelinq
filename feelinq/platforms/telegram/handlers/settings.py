@@ -152,7 +152,7 @@ async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
             fire_at = scheduler.compute_fire_time(user["due_min_h"], user["due_max_h"])
             await postgres.update_user(user_id, next_reminder_at=fire_at)
             scheduler.schedule_reminder(user_id, "telegram", fire_at)
-            scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"])
+            scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz=user.get("timezone") or "UTC")
         else:
             scheduler.cancel_reminder(user_id)
             scheduler.cancel_weekly(user_id)
@@ -187,7 +187,7 @@ async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         new_val = not user["weekly_summary_toggle"]
         await postgres.update_user(user_id, weekly_summary_toggle=new_val)
         if new_val:
-            scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"])
+            scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz=user.get("timezone") or "UTC")
         else:
             scheduler.cancel_weekly(user_id)
         user = await postgres.get_user(user_id)
@@ -254,6 +254,9 @@ async def tz_region_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     if query.data == "tz:UTC":
         await postgres.update_user(user_id, timezone="UTC")
+        user = await postgres.get_user(user_id)
+        if user and user["weekly_summary_toggle"]:
+            scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz="UTC")
         await query.edit_message_text(
             t(lang, "settings.tz_saved", tz="UTC"),
             reply_markup=keyboards.settings_menu_keyboard(lang),
@@ -291,6 +294,9 @@ async def tz_city_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     tz_name = query.data.split(":", 1)[1]
     await postgres.update_user(user_id, timezone=tz_name)
+    user = await postgres.get_user(user_id)
+    if user and user["weekly_summary_toggle"]:
+        scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz=tz_name)
     await query.edit_message_text(
         t(lang, "settings.tz_saved", tz=tz_name),
         reply_markup=keyboards.settings_menu_keyboard(lang),
@@ -313,6 +319,9 @@ async def tz_typed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return TZ_CITY
 
     await postgres.update_user(user_id, timezone=tz_text)
+    user = await postgres.get_user(user_id)
+    if user and user["weekly_summary_toggle"]:
+        scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz=tz_text)
     await update.message.reply_text(
         t(lang, "settings.tz_saved", tz=tz_text),
         reply_markup=keyboards.settings_menu_keyboard(lang),
@@ -357,7 +366,7 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         day = int(data.split(":")[2])
         await postgres.update_user(user_id, weekly_summary_day=day)
         if user["weekly_summary_toggle"]:
-            scheduler.schedule_weekly_summary(user_id, "telegram", day)
+            scheduler.schedule_weekly_summary(user_id, "telegram", day, tz=user.get("timezone") or "UTC")
         user = await postgres.get_user(user_id)
         assert user is not None
         await query.edit_message_text(
