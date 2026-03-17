@@ -68,10 +68,7 @@ async def _fire_reminder(user_id: str, platform: str) -> None:
 def schedule_reminder(user_id: str, platform: str, fire_at: datetime) -> None:
     scheduler = get_scheduler()
     job_id = f"reminder:{user_id}"
-    # Remove existing job if any
-    existing = scheduler.get_job(job_id)
-    if existing:
-        existing.remove()
+    # No manual remove needed: replace_existing=True handles duplicates via update_job()
     scheduler.add_job(
         _fire_reminder,
         "date",

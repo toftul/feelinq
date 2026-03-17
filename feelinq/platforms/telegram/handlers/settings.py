@@ -22,21 +22,20 @@ log = logging.getLogger(__name__)
 MENU, REMINDERS, TZ_REGION, TZ_CITY, LANG, WEEKLY, EMOTIONS = range(7)
 
 
-async def _get_user_lang(update: Update) -> tuple[str, str, str]:
-    """Returns (user_id, platform_id, lang)."""
+async def _get_user(update: Update):
+    """Returns (user_record | None, platform_id)."""
     assert update.effective_chat
     platform_id = str(update.effective_chat.id)
     user = await postgres.get_user_by_platform("telegram", platform_id)
-    if not user:
-        return "", platform_id, "en"
-    return user["user_id"], platform_id, user["language"]
+    return user, platform_id
 
 
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user_id, platform_id, lang = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         await update.message.reply_text("Please /start first.", parse_mode="HTML")  # type: ignore[union-attr]
         return ConversationHandler.END
+    lang = user["language"]
 
     await update.message.reply_text(  # type: ignore[union-attr]
         t(lang, "settings.title"),
@@ -51,12 +50,10 @@ async def menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     assert query and query.data
     await query.answer()
 
-    user_id, platform_id, lang = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         return ConversationHandler.END
-
-    user = await postgres.get_user(user_id)
-    assert user is not None
+    lang = user["language"]
     action = query.data.split(":")[1]
 
     if action == "close":
@@ -126,12 +123,11 @@ async def reminders_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     assert query and query.data
     await query.answer()
 
-    user_id, _, lang = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         return ConversationHandler.END
-
-    user = await postgres.get_user(user_id)
-    assert user is not None
+    user_id = user["user_id"]
+    lang = user["language"]
 
     data = query.data
 
@@ -248,14 +244,15 @@ async def tz_region_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     assert query and query.data
     await query.answer()
 
-    user_id, _, lang = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         return ConversationHandler.END
+    user_id = user["user_id"]
+    lang = user["language"]
 
     if query.data == "tz:UTC":
         await postgres.update_user(user_id, timezone="UTC")
-        user = await postgres.get_user(user_id)
-        if user and user["weekly_summary_toggle"]:
+        if user["weekly_summary_toggle"]:
             scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz="UTC")
         await query.edit_message_text(
             t(lang, "settings.tz_saved", tz="UTC"),
@@ -280,9 +277,11 @@ async def tz_city_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     assert query and query.data
     await query.answer()
 
-    user_id, _, lang = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         return ConversationHandler.END
+    user_id = user["user_id"]
+    lang = user["language"]
 
     if query.data == "tz_back":
         await query.edit_message_text(
@@ -294,8 +293,7 @@ async def tz_city_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     tz_name = query.data.split(":", 1)[1]
     await postgres.update_user(user_id, timezone=tz_name)
-    user = await postgres.get_user(user_id)
-    if user and user["weekly_summary_toggle"]:
+    if user["weekly_summary_toggle"]:
         scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz=tz_name)
     await query.edit_message_text(
         t(lang, "settings.tz_saved", tz=tz_name),
@@ -307,9 +305,11 @@ async def tz_city_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def tz_typed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     assert update.message and update.message.text
-    user_id, _, lang = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         return ConversationHandler.END
+    user_id = user["user_id"]
+    lang = user["language"]
 
     tz_text = update.message.text.strip()
     try:
@@ -319,8 +319,7 @@ async def tz_typed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return TZ_CITY
 
     await postgres.update_user(user_id, timezone=tz_text)
-    user = await postgres.get_user(user_id)
-    if user and user["weekly_summary_toggle"]:
+    if user["weekly_summary_toggle"]:
         scheduler.schedule_weekly_summary(user_id, "telegram", user["weekly_summary_day"], tz=tz_text)
     await update.message.reply_text(
         t(lang, "settings.tz_saved", tz=tz_text),
@@ -335,9 +334,10 @@ async def lang_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     assert query and query.data
     await query.answer()
 
-    user_id, _, _ = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         return ConversationHandler.END
+    user_id = user["user_id"]
 
     new_lang = query.data.split(":")[1]
     await postgres.update_user(user_id, language=new_lang)
@@ -354,12 +354,11 @@ async def weekly_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     assert query and query.data
     await query.answer()
 
-    user_id, _, lang = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         return ConversationHandler.END
-
-    user = await postgres.get_user(user_id)
-    assert user is not None
+    user_id = user["user_id"]
+    lang = user["language"]
 
     data = query.data
     if data.startswith("weekly:day:"):
@@ -390,9 +389,11 @@ async def emotions_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     assert query and query.data
     await query.answer()
 
-    user_id, _, lang = await _get_user_lang(update)
-    if not user_id:
+    user, _ = await _get_user(update)
+    if not user:
         return ConversationHandler.END
+    user_id = user["user_id"]
+    lang = user["language"]
 
     assert context.user_data is not None
     selected: set[str] = context.user_data.get("set_emotions", set())
