@@ -63,6 +63,14 @@ async def _fire_reminder(user_id: str, platform: str) -> None:
         await callback(user_id)
     except Exception:
         log.exception("Error firing reminder for user %s", user_id)
+        # Reschedule so a transient failure (e.g. network timeout) doesn't
+        # permanently kill reminders for this user.
+        from feelinq.db import postgres
+        user = await postgres.get_user(user_id)
+        if user and user["reminders_toggle"]:
+            fire_at = compute_fire_time(user["due_min_h"], user["due_max_h"])
+            schedule_reminder(user_id, platform, fire_at)
+            log.info("Rescheduled reminder for user %s after failure", user_id)
 
 
 def schedule_reminder(user_id: str, platform: str, fire_at: datetime) -> None:
