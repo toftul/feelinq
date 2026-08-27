@@ -44,7 +44,6 @@ GRID_COLUMNS = 3
 
 # When changing these, also update hardcoded values in locales/*.json
 MIN_USER_EMOTIONS = 6
-MAX_USER_EMOTIONS = 15
 MIN_PER_QUADRANT = 1
 
 QUADRANT_LABELS = {
@@ -76,8 +75,6 @@ def validate_emotion_selection(keys: set[str]) -> str | None:
     """Returns an error reason or None if valid."""
     if len(keys) < MIN_USER_EMOTIONS:
         return "too_few"
-    if len(keys) > MAX_USER_EMOTIONS:
-        return "too_many"
     counts = {q: 0 for q in QUADRANT_LABELS}
     for k in keys:
         e = EMOTION_CATALOG.get(k)

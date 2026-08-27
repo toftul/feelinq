@@ -98,6 +98,7 @@ The bot will create the `user_settings` table and `mood_entry` hypertable automa
 | Command | Description |
 |---------|-------------|
 | `/start` | Onboarding (language, timezone) |
+| `/checkin` | Log how you feel right now (manual check-in) |
 | `/settings` | Reminder window, timezone, language, weekly summary |
 | `/stats` | Mood charts (valence, arousal, circumplex, frequency, heatmap) |
 | `/help` | How the bot works |

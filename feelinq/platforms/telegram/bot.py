@@ -9,6 +9,7 @@ from feelinq.db import postgres, timescale
 from feelinq.platforms.telegram.handlers import (
     start,
     reminder,
+    checkin,
     settings as settings_handler,
     stats,
     help as help_handler,
@@ -67,6 +68,7 @@ def build_application() -> Application:
     application.add_handler(reminder.get_conversation_handler(), group=1)
 
     # Simple command handlers
+    application.add_handler(checkin.get_handler())
     application.add_handler(stats.get_handler())
     application.add_handler(help_handler.get_handler())
     application.add_handler(theory.get_handler())

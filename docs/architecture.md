@@ -27,6 +27,7 @@ feelinq/
 │       ├── handlers/
 │       │   ├── start.py         # /start, onboarding ConversationHandler
 │       │   ├── reminder.py      # reminder ConversationHandler (emotion picker)
+│       │   ├── checkin.py       # /checkin handler (manual check-in)
 │       │   ├── settings.py      # /settings ConversationHandler
 │       │   ├── stats.py         # /stats handler
 │       │   ├── help.py          # /help handler
@@ -61,8 +62,8 @@ Organised by quadrant:
 - **High energy, negative** (lp_ha): angry, frustrated, anxious, annoyed, afraid, nervous
 - **Low energy, negative** (lp_la): sad, miserable, bored, droopy
 
-**Per-user emotion selection:** during onboarding, each user picks 6–12 emotions
-(minimum 1 per quadrant). Their selection is stored in the `extra` JSONB field
+**Per-user emotion selection:** during onboarding, each user picks at least 6
+emotions (minimum 1 per quadrant, no upper limit). Their selection is stored in the `extra` JSONB field
 of `user_settings`. The reminder picker shows only the user's chosen subset;
 users with no selection see all emotions (backwards compatible). Selection can
 be changed anytime via `/settings → Emotions`.
@@ -204,7 +205,7 @@ Each file is a flat-ish dict with dot-namespaced keys:
   "quadrant.hp_ha":            "High energy, positive",
   "quadrant.lp_ha":            "High energy, negative",
 
-  "emotions_chooser.prompt":   "Choose the emotions you want to track (6–12)...",
+  "emotions_chooser.prompt":   "Choose the emotions you want to track (6 or more)...",
   "emotions_chooser.done_button": "Done ({count} selected)",
   "emotions_chooser.error_too_few": "Select at least 6 emotions.",
 
@@ -360,6 +361,7 @@ feedback  - Send feedback to the team
 |---|---|---|
 | `/start` | any time | Entry to onboarding ConversationHandler |
 | `/settings` | any time | Settings ConversationHandler |
+| `/checkin` | any time | Sends the emotion picker on demand |
 | `/stats` | any time | Calls stats engine, sends photos |
 | `/help` | any time | Static message + circumplex image |
 | `/feedback <text>` | any time | Forwards to all admins |

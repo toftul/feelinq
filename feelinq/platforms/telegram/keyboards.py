@@ -7,7 +7,6 @@ from feelinq.core.emotions import (
     make_grid,
     validate_emotion_selection,
     MIN_USER_EMOTIONS,
-    MAX_USER_EMOTIONS,
 )
 from feelinq.core.i18n import t
 
@@ -128,7 +127,7 @@ def emotion_chooser_keyboard(lang: str, selected: set[str]) -> InlineKeyboardMar
     error = validate_emotion_selection(selected)
     count = len(selected)
     if error:
-        done_label = t(lang, "emotions_chooser.count", count=count, min=MIN_USER_EMOTIONS, max=MAX_USER_EMOTIONS)
+        done_label = t(lang, "emotions_chooser.count", count=count, min=MIN_USER_EMOTIONS)
     else:
         done_label = t(lang, "emotions_chooser.done_button", count=count)
     rows.append([InlineKeyboardButton(done_label, callback_data="echoose:done")])

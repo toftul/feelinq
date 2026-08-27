@@ -27,8 +27,12 @@ _SELECTED_KEY = "reminder_selected"
 _MSG_ID_KEY = "reminder_msg_id"
 
 
-async def send_reminder(user_id: str) -> None:
-    """Called by the scheduler. Sends the emotion picker to the user."""
+async def send_reminder(user_id: str, force: bool = False) -> None:
+    """Sends the emotion picker to the user.
+
+    Called by the scheduler, or with force=True for a manual /checkin, which
+    replaces any picker already open.
+    """
     from feelinq.platforms.telegram.bot import get_application
 
     app = get_application()
@@ -41,7 +45,7 @@ async def send_reminder(user_id: str) -> None:
 
     # Check if there's already an active reminder session
     user_data = app.user_data.get(platform_id, {})
-    if user_data.get(_SESSION_KEY):
+    if not force and user_data.get(_SESSION_KEY):
         log.debug("Skipping reminder for user %s — session already active", user_id)
         return
 
