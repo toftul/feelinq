@@ -759,6 +759,7 @@ def _week_strip(days: list[date], day_stats: dict[date, tuple[float, float, int]
 
     span = f"{days[0]:%d/%m} \u2013 {days[-1]:%d/%m/%Y}"
     fig.suptitle(f"Week at a Glance ({span})", fontsize=13, fontweight="bold")
+    fig.align_ylabels((ax_mood, ax_energy))
     fig.tight_layout()
     return _fig_to_bytes(fig)
 

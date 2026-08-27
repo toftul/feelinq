@@ -66,13 +66,22 @@ async def send_reminder(user_id: str, force: bool = False) -> None:
 
 
 async def send_weekly_summary(user_id: str) -> None:
-    """Called by the scheduler. Sends the weekly report as one album."""
+    """Called by the scheduler."""
+    await send_weekly_report(user_id)
+
+
+async def send_weekly_report(user_id: str) -> bool:
+    """Sends the weekly report as one album.
+
+    Returns False when there is nothing to send, so that a manual /weekly can
+    tell the user instead of staying silent.
+    """
     from feelinq.platforms.telegram.bot import get_application
 
     app = get_application()
     user = await postgres.get_user(user_id)
     if not user:
-        return
+        return False
 
     platform_id = int(user["platform_id"])
 
@@ -82,7 +91,7 @@ async def send_weekly_summary(user_id: str) -> None:
         lang=user["language"],
     )
     if not charts:
-        return
+        return False
 
     # One album = one notification. Only the first caption is shown by Telegram.
     media = [
@@ -94,6 +103,7 @@ async def send_weekly_summary(user_id: str) -> None:
         for caption, img_bytes in charts
     ]
     await app.bot.send_media_group(chat_id=platform_id, media=media)
+    return True
 
 
 async def emotion_toggled(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

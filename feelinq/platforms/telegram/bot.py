@@ -10,6 +10,7 @@ from feelinq.platforms.telegram.handlers import (
     start,
     reminder,
     checkin,
+    weekly,
     settings as settings_handler,
     stats,
     help as help_handler,
@@ -70,6 +71,7 @@ def build_application() -> Application:
     # Simple command handlers
     application.add_handler(checkin.get_handler())
     application.add_handler(stats.get_handler())
+    application.add_handler(weekly.get_handler())
     application.add_handler(help_handler.get_handler())
     application.add_handler(theory.get_handler())
     for h in feedback.get_handlers():

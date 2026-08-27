@@ -28,6 +28,7 @@ feelinq/
 │       │   ├── start.py         # /start, onboarding ConversationHandler
 │       │   ├── reminder.py      # reminder ConversationHandler (emotion picker)
 │       │   ├── checkin.py       # /checkin handler (manual check-in)
+│       │   ├── weekly.py       # /weekly handler (report on demand)
 │       │   ├── settings.py      # /settings ConversationHandler
 │       │   ├── stats.py         # /stats handler
 │       │   ├── help.py          # /help handler
@@ -140,6 +141,8 @@ Sends one album (`send_media_group`, so it arrives as a single notification):
 1. **Week at a glance** — mood and energy bars for each of the last 7 local
    days, greyed out where there was no check-in. Carries the caption.
 2. **Circumplex scatter** for that week.
+
+`/weekly` sends the same report on demand, for the last 7 days.
 
 The caption is localised and holds the number of check-ins, the dominant
 quadrant in plain words, the top 3 emotions, and the brightest and toughest
@@ -370,6 +373,7 @@ feedback  - Send feedback to the team
 | `/settings` | any time | Settings ConversationHandler |
 | `/checkin` | any time | Sends the emotion picker on demand |
 | `/stats` | any time | Calls stats engine, sends photos |
+| `/weekly` | any time | Sends the weekly report on demand |
 | `/help` | any time | Static message + circumplex image |
 | `/feedback <text>` | any time | Forwards to all admins |
 | `/admin_stats` | admins only | Usage stats |

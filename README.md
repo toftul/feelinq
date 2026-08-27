@@ -17,6 +17,8 @@ Examples: *Excited* = high valence, high arousal; *Relaxed* = high valence, low 
 
 When multiple emotions are selected, the bot stores their mean valence and arousal — a single point on the circumplex representing your overall state for that entry.
 
+During onboarding you pick which emotions you want to track: at least 6, with at least one from each quadrant, and no upper limit. Check-ins then show only your selection. Change it any time in `/settings → Emotions`.
+
 ![Russell circumplex model of affect](docs/images/russel_map.png)
 
 ## Setup
@@ -104,10 +106,26 @@ The bot will create the `user_settings` table and `mood_entry` hypertable automa
 |---------|-------------|
 | `/start` | Onboarding (language, timezone) |
 | `/checkin` | Log how you feel right now (manual check-in) |
-| `/settings` | Reminder window, timezone, language, weekly summary |
-| `/stats` | Mood charts (valence, arousal, circumplex, frequency, heatmap) |
+| `/settings` | Emotions, reminder window, timezone, language, weekly report |
+| `/stats` | Circumplex scatter plus 12-month mood and energy calendars |
+| `/weekly` | Weekly report on demand |
 | `/help` | How the bot works |
+| `/theory` | The science behind the circumplex model |
 | `/feedback <text>` | Send feedback to admins |
+
+## Weekly report
+
+Every Monday at 09:00 local time the bot sends a report as a single album:
+
+- **Summary** — number of check-ins, the dominant quadrant in plain words, your top 3 emotions, and the brightest and toughest check-in of the week.
+- **Week at a glance** — mood and energy bars for each of the last 7 days. Days without a check-in are greyed out.
+- **Circumplex** — where the week sits on the map, against your all-time spread.
+
+The day is configurable in `/settings → Reminders`, where the report can also be
+switched off. A week with no check-ins produces no report. `/weekly` sends the
+same report on demand.
+
+![Week at a glance](docs/images/week_strip.png)
 
 ## Configuration
 
