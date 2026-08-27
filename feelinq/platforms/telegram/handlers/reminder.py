@@ -1,7 +1,7 @@
 import io
 import logging
 
-from telegram import Update
+from telegram import InputMediaPhoto, Update
 from telegram.ext import (
     CallbackQueryHandler,
     ConversationHandler,
@@ -66,7 +66,7 @@ async def send_reminder(user_id: str, force: bool = False) -> None:
 
 
 async def send_weekly_summary(user_id: str) -> None:
-    """Called by the scheduler. Sends the weekly circumplex chart."""
+    """Called by the scheduler. Sends the weekly report as one album."""
     from feelinq.platforms.telegram.bot import get_application
 
     app = get_application()
@@ -76,16 +76,24 @@ async def send_weekly_summary(user_id: str) -> None:
 
     platform_id = int(user["platform_id"])
 
-    result = await stats_engine.generate_weekly(user_id, user_tz=user.get("timezone") or "UTC")
-    if not result:
+    charts = await stats_engine.generate_weekly(
+        user_id,
+        user_tz=user.get("timezone") or "UTC",
+        lang=user["language"],
+    )
+    if not charts:
         return
 
-    caption, img_bytes = result
-    await app.bot.send_photo(
-        chat_id=platform_id,
-        photo=io.BytesIO(img_bytes),
-        caption=caption,
-    )
+    # One album = one notification. Only the first caption is shown by Telegram.
+    media = [
+        InputMediaPhoto(
+            media=io.BytesIO(img_bytes),
+            caption=caption or None,
+            parse_mode="HTML",
+        )
+        for caption, img_bytes in charts
+    ]
+    await app.bot.send_media_group(chat_id=platform_id, media=media)
 
 
 async def emotion_toggled(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

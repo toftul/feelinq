@@ -14,6 +14,10 @@ _scheduler: AsyncIOScheduler | None = None
 _reminder_callbacks: dict[str, Callable[[str], Awaitable[None]]] = {}
 _weekly_callbacks: dict[str, Callable[[str], Awaitable[None]]] = {}
 
+# Local time of the weekly report. When changing it, also update the
+# hardcoded times in locales/*.json
+WEEKLY_SUMMARY_HOUR = 9
+
 
 def get_scheduler() -> AsyncIOScheduler:
     global _scheduler
@@ -126,7 +130,7 @@ def schedule_weekly_summary(
     user_id: str,
     platform: str,
     day_of_week: int,
-    hour: int = 10,
+    hour: int = WEEKLY_SUMMARY_HOUR,
     tz: str = "UTC",
 ) -> None:
     scheduler = get_scheduler()

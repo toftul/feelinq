@@ -133,10 +133,17 @@ Minimum entries required before showing charts: **5** (otherwise show a friendly
 ### Weekly summary
 
 Triggered by a separate APScheduler cron job (per user, fires on
-`weekly_summary_day` at 09:00 user-local time).
+`weekly_summary_day` at 09:00 user-local time, Monday by default).
 
-Sends: short text summary (avg valence/arousal for the week) + circumplex
-scatter chart for that week.
+Sends one album (`send_media_group`, so it arrives as a single notification):
+
+1. **Week at a glance** — mood and energy bars for each of the last 7 local
+   days, greyed out where there was no check-in. Carries the caption.
+2. **Circumplex scatter** for that week.
+
+The caption is localised and holds the number of check-ins, the dominant
+quadrant in plain words, the top 3 emotions, and the brightest and toughest
+check-in of the week. A week with no check-ins produces no report.
 
 ### Admin module (`core/admin.py`)
 

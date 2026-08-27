@@ -13,6 +13,7 @@ from matplotlib.patches import Ellipse, Polygon
 import numpy as np
 
 from feelinq.core.emotions import EMOTION_CATALOG
+from feelinq.core.i18n import t
 from feelinq.db import timescale
 
 log = logging.getLogger(__name__)
@@ -52,11 +53,27 @@ async def generate_all(user_id: str, user_tz: str = "UTC") -> list[tuple[str, by
     return charts
 
 
-async def generate_weekly(user_id: str, user_tz: str = "UTC") -> tuple[str, bytes] | None:
+async def generate_weekly(
+    user_id: str,
+    user_tz: str = "UTC",
+    lang: str = "en",
+) -> list[tuple[str, bytes]] | None:
+    """Weekly report: summary caption + week strip + circumplex.
+
+    Returns None when the user made no check-ins in the last 7 local days.
+    """
     all_entries = await timescale.query_mood_entries(user_id, range_days=None)
     if not all_entries:
         return None
-    return ("Weekly circumplex", _circumplex_scatter(all_entries, recent_days=7, user_tz=user_tz))
+
+    days, week = _collect_week(all_entries, user_tz)
+    if not week:
+        return None
+
+    return [
+        (_weekly_caption(week, lang), _week_strip(days, _day_stats(days, week))),
+        ("", _circumplex_scatter(all_entries, recent_days=7, user_tz=user_tz)),
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -136,6 +153,15 @@ def _confidence_ellipse(
     )
     ellipse.set_transform(transf + ax.transData)
     return ax.add_patch(ellipse)
+
+
+def _entry_local_time(entry: dict, user_tz: str) -> datetime:
+    """Entry timestamp in the timezone it was recorded in (user tz as fallback)."""
+    ts = entry["time"]
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    entry_tz = entry.get("timezone")
+    return ts.astimezone(ZoneInfo(entry_tz) if entry_tz else ZoneInfo(user_tz))
 
 
 def _get_quadrant_key(v: float, a: float) -> str:
@@ -300,13 +326,14 @@ def _circumplex_scatter(entries: list[dict], recent_days: int = 14, user_tz: str
 
     today = datetime.now(ZoneInfo(user_tz)).strftime("%d/%m/%Y")
     ax.set_title(f"Russell Circumplex ({today})", fontsize=12, pad=16)
-    ax.legend(
-        loc="upper left", 
-        fontsize=8, 
-        fancybox=False,
-        edgecolor=None,
-        framealpha=0.8
-    )
+    if ax.get_legend_handles_labels()[0]:
+        ax.legend(
+            loc="upper left",
+            fontsize=8,
+            fancybox=False,
+            edgecolor=None,
+            framealpha=0.8
+        )
     fig.tight_layout()
     return _fig_to_bytes(fig)
 
@@ -332,9 +359,9 @@ def _quadrant_distribution(entries: list[dict]) -> bytes:
         pctdistance=0.75,
         wedgeprops=dict(edgecolor="white", linewidth=2),
     )
-    for t in autotexts:
-        t.set_fontsize(10)
-        t.set_fontweight("bold")
+    for autotext in autotexts:
+        autotext.set_fontsize(10)
+        autotext.set_fontweight("bold")
     ax.set_title("Quadrant distribution")
     fig.tight_layout()
     return _fig_to_bytes(fig)
@@ -354,12 +381,12 @@ def _emotion_frequency(entries: list[dict]) -> bytes:
         return _fig_to_bytes(fig)
 
     top = counter.most_common(10)
-    labels = [t[0].capitalize() for t in top]
-    counts = [t[1] for t in top]
+    labels = [item[0].capitalize() for item in top]
+    counts = [item[1] for item in top]
     # Color each bar by its quadrant
     bar_colors = []
-    for t in top:
-        em = EMOTION_CATALOG.get(t[0])
+    for item in top:
+        em = EMOTION_CATALOG.get(item[0])
         if em:
             bar_colors.append(_QUADRANT_COLORS[_get_quadrant_key(em.valence, em.arousal)])
         else:
@@ -460,12 +487,7 @@ def _year_calendar_generic(
     # Aggregate field by date (use per-entry tz if available, else user tz)
     day_data: dict[date, list[float]] = {}
     for e in entries:
-        t = e["time"]
-        if t.tzinfo is None:
-            t = t.replace(tzinfo=timezone.utc)
-        entry_tz_str = e.get("timezone")
-        tz = ZoneInfo(entry_tz_str) if entry_tz_str else ZoneInfo(user_tz)
-        d = t.astimezone(tz).date()
+        d = _entry_local_time(e, user_tz).date()
         day_data.setdefault(d, []).append(e[field])
 
     day_avg = {d: float(np.mean(vals)) for d, vals in day_data.items()}
@@ -582,6 +604,162 @@ def _year_calendar_generic(
     cb.ax.tick_params(labelsize=8, length=0)
 
     plt.subplots_adjust(left=0.04, right=0.96, top=0.88, bottom=0.04, hspace=0.4)
+    return _fig_to_bytes(fig)
+
+
+# ---------------------------------------------------------------------------
+# Weekly report
+# ---------------------------------------------------------------------------
+
+WEEK_DAYS = 7
+
+# Local hour -> part of the day, used in the "notable moments" lines
+_TIME_OF_DAY = [(5, "morning"), (12, "afternoon"), (17, "evening"), (22, "night")]
+
+
+def _time_of_day_key(hour: int) -> str:
+    part = "night"
+    for start, name in _TIME_OF_DAY:
+        if hour >= start:
+            part = name
+    return f"weekly.tod_{part}"
+
+
+def _format_emotions(emotions_str: str, lang: str, limit: int = 3) -> str:
+    """Translated emotion names, capped so the caption stays short."""
+    keys = [k.strip() for k in (emotions_str or "").split(",") if k.strip()]
+    text = ", ".join(t(lang, f"emotions.{k}") for k in keys[:limit])
+    if len(keys) > limit:
+        text += f" +{len(keys) - limit}"
+    return text
+
+
+def _collect_week(
+    entries: list[dict],
+    user_tz: str,
+) -> tuple[list[date], list[tuple[datetime, dict]]]:
+    """The 7 local days of the report, and the entries that fall inside them."""
+    today = datetime.now(ZoneInfo(user_tz)).date()
+    days = [today - timedelta(days=i) for i in range(WEEK_DAYS - 1, -1, -1)]
+    day_set = set(days)
+
+    week = [
+        (local, e) for e in entries
+        if (local := _entry_local_time(e, user_tz)).date() in day_set
+    ]
+    week.sort(key=lambda item: item[0])
+    return days, week
+
+
+def _day_stats(
+    days: list[date],
+    week: list[tuple[datetime, dict]],
+) -> dict[date, tuple[float, float, int]]:
+    """Per-day (mean valence, mean arousal, check-in count). Empty days are absent."""
+    buckets: dict[date, list[dict]] = {d: [] for d in days}
+    for local, e in week:
+        buckets[local.date()].append(e)
+    return {
+        d: (
+            float(np.mean([e["mean_valence"] for e in items])),
+            float(np.mean([e["mean_arousal"] for e in items])),
+            len(items),
+        )
+        for d, items in buckets.items() if items
+    }
+
+
+def _moment_line(item: tuple[datetime, dict], key: str, lang: str) -> str:
+    local, entry = item
+    return t(
+        lang, key,
+        day=t(lang, f"days.{local.weekday()}"),
+        tod=t(lang, _time_of_day_key(local.hour)),
+        emotions=_format_emotions(entry.get("emotions", ""), lang),
+    )
+
+
+def _weekly_caption(week: list[tuple[datetime, dict]], lang: str) -> str:
+    total = len(week)
+    lines = [t(lang, "weekly.title"), "", t(lang, "weekly.checkins", count=total)]
+
+    # Dominant quadrant, in plain words
+    quadrants = Counter(_get_quadrant_key(e["mean_valence"], e["mean_arousal"]) for _, e in week)
+    quadrant, quadrant_count = quadrants.most_common(1)[0]
+    lines.append(t(
+        lang, "weekly.dominant",
+        mood=t(lang, f"weekly.mood_{quadrant}"),
+        pct=round(quadrant_count / total * 100),
+    ))
+
+    # Top 3 emotions of the week
+    counter: Counter[str] = Counter()
+    for _, e in week:
+        for key in (e.get("emotions") or "").split(","):
+            if key.strip():
+                counter[key.strip()] += 1
+    if counter:
+        top = ", ".join(t(lang, f"emotions.{k}") for k, _ in counter.most_common(3))
+        lines.append(t(lang, "weekly.top_emotions", emotions=top))
+
+    # Notable moments — brightest and toughest check-in
+    if total >= 2:
+        best = max(week, key=lambda item: (item[1]["mean_valence"], item[1]["mean_arousal"]))
+        tough = min(week, key=lambda item: (item[1]["mean_valence"], -item[1]["mean_arousal"]))
+        lines += ["", _moment_line(best, "weekly.best_moment", lang)]
+        if tough[1] is not best[1]:
+            lines.append(_moment_line(tough, "weekly.tough_moment", lang))
+
+    return "\n".join(lines)
+
+
+def _week_strip(days: list[date], day_stats: dict[date, tuple[float, float, int]]) -> bytes:
+    """Mood and energy bars for each day of the week, greyed where no check-in."""
+    fig, (ax_mood, ax_energy) = plt.subplots(2, 1, figsize=(8, 5), sharex=True)
+    norm = plt.Normalize(-1, 1)
+
+    panels = (
+        (ax_mood, 0, plt.cm.RdYlGn, "Mood", "Unpleasant", "Pleasant"),      # type: ignore[attr-defined]
+        (ax_energy, 1, plt.cm.BrBG_r, "Energy", "Low", "High"),             # type: ignore[attr-defined]
+    )
+    for ax, idx, cmap, ylabel, low_label, high_label in panels:
+        for i, d in enumerate(days):
+            stats = day_stats.get(d)
+            if stats is None:
+                # No check-in: grey column, and a dash under the day label
+                ax.axvspan(i - 0.5, i + 0.5, color="#f4f4f4", zorder=0)
+                continue
+            value = stats[idx]
+            ax.bar(
+                i, value, width=0.62, color=cmap(norm(value)),
+                edgecolor="white", linewidth=0.8, zorder=2,
+            )
+            ax.text(
+                i, value + (0.06 if value >= 0 else -0.06), f"{value:+.2f}",
+                ha="center", va="bottom" if value >= 0 else "top",
+                fontsize=8, color="#555555",
+            )
+
+        ax.axhline(0, color="#888888", linewidth=0.8, zorder=1)
+        ax.set_ylim(-1.3, 1.3)
+        ax.set_yticks([-1, 0, 1])
+        ax.set_yticklabels([low_label, "", high_label], fontsize=8, color="#555555")
+        ax.set_ylabel(ylabel, fontsize=11, fontweight="bold")
+        for edge in ("top", "right", "bottom"):
+            ax.spines[edge].set_visible(False)
+        ax.tick_params(axis="both", length=0)
+
+    labels = []
+    for d in days:
+        stats = day_stats.get(d)
+        labels.append(f"{d:%a}\n\u00d7{stats[2]}" if stats else f"{d:%a}\n\u2014")
+    ax_energy.set_xticks(np.arange(len(days)))
+    ax_energy.set_xticklabels(labels, fontsize=9)
+    ax_energy.set_xlim(-0.6, len(days) - 0.4)
+
+    span = f"{days[0]:%d/%m} \u2013 {days[-1]:%d/%m/%Y}"
+    fig.suptitle(f"Week at a Glance ({span})", fontsize=13, fontweight="bold")
+    fig.tight_layout()
     return _fig_to_bytes(fig)
 
 
