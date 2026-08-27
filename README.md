@@ -67,6 +67,11 @@ systemctl --user status feelinq.service
 systemctl --user status postgres.service
 ```
 
+Updating
+```sh
+git pull ; podman build -t feelinq:latest . ; systemctl --user restart feelinq.service
+```
+
 ### Running locally (development)
 
 Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and TimescaleDB running separately.
