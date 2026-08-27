@@ -42,7 +42,7 @@ async def generate_all(user_id: str, user_tz: str = "UTC") -> list[tuple[str, by
     charts: list[tuple[str, bytes]] = []
     # charts.append(("Valence over time", _valence_over_time(all_entries)))
     # charts.append(("Arousal over time", _arousal_over_time(all_entries)))
-    charts.append(("Circumplex scatter", _circumplex_scatter(all_entries)))
+    charts.append(("Circumplex scatter", _circumplex_scatter(all_entries, user_tz=user_tz)))
     # charts.append(("Quadrant distribution", _quadrant_distribution(all_entries)))
     # charts.append(("Emotion frequency", _emotion_frequency(all_entries)))
     # charts.append(("Time of day", _time_of_day(all_entries)))
@@ -56,7 +56,7 @@ async def generate_weekly(user_id: str, user_tz: str = "UTC") -> tuple[str, byte
     all_entries = await timescale.query_mood_entries(user_id, range_days=None)
     if not all_entries:
         return None
-    return ("Weekly circumplex", _circumplex_scatter(all_entries, recent_days=7))
+    return ("Weekly circumplex", _circumplex_scatter(all_entries, recent_days=7, user_tz=user_tz))
 
 
 # ---------------------------------------------------------------------------
@@ -196,7 +196,7 @@ def _arousal_over_time(entries: list[dict]) -> bytes:
     return _fig_to_bytes(fig)
 
 
-def _circumplex_scatter(entries: list[dict], recent_days: int = 14) -> bytes:
+def _circumplex_scatter(entries: list[dict], recent_days: int = 14, user_tz: str = "UTC") -> bytes:
     vals = np.array([e["mean_valence"] for e in entries])
     aros = np.array([e["mean_arousal"] for e in entries])
 
@@ -298,7 +298,8 @@ def _circumplex_scatter(entries: list[dict], recent_days: int = 14) -> bytes:
     ax.set_xticks([])
     ax.set_yticks([])
 
-    ax.set_title("Russell Circumplex", fontsize=12, pad=16)
+    today = datetime.now(ZoneInfo(user_tz)).strftime("%d/%m/%Y")
+    ax.set_title(f"Russell Circumplex ({today})", fontsize=12, pad=16)
     ax.legend(
         loc="upper left", 
         fontsize=8, 
